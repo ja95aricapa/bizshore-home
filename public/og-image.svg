@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="BizShore Solutions SAS">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0f9d72"/>
+      <stop offset="100%" stop-color="#0c6e8f"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <g fill="#ffffff" font-family="Space Grotesk, Segoe UI, sans-serif">
+    <text x="90" y="250" font-size="70" font-weight="700">BizShore Solutions SAS</text>
+    <text x="90" y="320" font-size="34" opacity="0.95">Consultoria y desarrollo de software</text>
+    <text x="90" y="370" font-size="34" opacity="0.95">Cali, Colombia</text>
+  </g>
+</svg>

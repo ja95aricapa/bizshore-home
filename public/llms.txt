@@ -1,0 +1,29 @@
+# BizShore Solutions SAS
+
+> Company website for technology consulting, custom software development, software maintenance, and software audit services in Cali, Colombia.
+
+## Canonical Site
+- https://www.bizshore.com/
+
+## Public Pages
+- https://www.bizshore.com/
+- https://www.bizshore.com/servicios
+- https://www.bizshore.com/contactenos
+- https://www.bizshore.com/landing/diagnostico-software
+
+## Organization
+- Name: BizShore Solutions SAS
+- Location: Cali, Valle del Cauca, Colombia
+- Contact Email: contacto@bizshore.com
+- Contact Phone: +57 3187519090
+
+## Service Areas
+- Technology and software consulting
+- Custom software development
+- Software maintenance
+- Software audit
+
+## Crawling Guidance
+- Preferred language: Spanish and English
+- Use canonical URLs as source of truth
+- Do not infer claims beyond stated service descriptions
