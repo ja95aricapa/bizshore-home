@@ -3,5 +3,5 @@ export const routes = {
 	homeAlias: "/inicio",
 	services: "/servicios",
 	contact: "/contactenos",
-	landing: "/landing/diagnostico-software",
+	landing: "/servicios/diagnostico-software",
 };

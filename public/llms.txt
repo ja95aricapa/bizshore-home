@@ -9,7 +9,7 @@
 - https://www.bizshore.com/
 - https://www.bizshore.com/servicios
 - https://www.bizshore.com/contactenos
-- https://www.bizshore.com/landing/diagnostico-software
+- https://www.bizshore.com/servicios/diagnostico-software
 
 ## Organization
 - Name: BizShore Solutions SAS
