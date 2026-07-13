@@ -59,6 +59,14 @@ function ContactPage({ copy, lang }) {
 
 			<div className='contact-layout'>
 				<section className='contact-card'>
+					<figure className='contact-media'>
+						<img
+							src='/images/ITPro-IT-Solution-Divi-Child-Theme-Image-19.jpg'
+							alt='Equipo de BizShore colaborando en oficina'
+							loading='lazy'
+						/>
+					</figure>
+
 					<h3>BizShore Solutions SAS</h3>
 					<ul className='contact-list'>
 						{copy.contact.details.map((detail) => (

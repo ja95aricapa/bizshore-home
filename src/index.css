@@ -177,6 +177,50 @@ p {
 	gap: 1.2rem;
 }
 
+.hero-grid {
+	display: grid;
+	grid-template-columns: 1.15fr 0.85fr;
+	gap: clamp(18px, 2.8vw, 28px);
+	align-items: stretch;
+}
+
+.hero-copy {
+	display: grid;
+	gap: 1rem;
+}
+
+.hero-media,
+.home-wide-media,
+.services-media,
+.contact-media,
+.landing-media {
+	margin: 0;
+	border-radius: var(--radius-l);
+	overflow: hidden;
+	border: 1px solid var(--surface-border);
+	background: #fff;
+}
+
+.hero-media img,
+.home-wide-media img,
+.services-media img,
+.contact-media img,
+.landing-media img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.hero-media {
+	min-height: 100%;
+}
+
+.home-wide-media {
+	aspect-ratio: 16 / 7;
+	margin-bottom: 4px;
+}
+
 .hero-subtitle,
 .page-subtitle {
 	max-width: 760px;
@@ -271,6 +315,21 @@ p {
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.services-visual-grid {
+	display: grid;
+	grid-template-columns: 1.4fr 1fr 1fr;
+	gap: 14px;
+	margin-bottom: 8px;
+}
+
+.services-media {
+	aspect-ratio: 4 / 3;
+}
+
+.services-media-large {
+	aspect-ratio: 16 / 9;
+}
+
 .service-card ul,
 .landing-list,
 .contact-list {
@@ -292,6 +351,11 @@ p {
 .contact-list {
 	list-style: none;
 	padding-left: 0;
+}
+
+.contact-media {
+	aspect-ratio: 16 / 10;
+	margin-bottom: 14px;
 }
 
 .contact-list li {
@@ -388,6 +452,10 @@ textarea:focus,
 	gap: 16px;
 }
 
+.landing-media {
+	aspect-ratio: 16 / 8;
+}
+
 .site-footer {
 	border-top: 1px solid var(--surface-border);
 	padding: 16px clamp(16px, 4vw, 42px);
@@ -440,5 +508,19 @@ textarea:focus,
 	.services-grid,
 	.contact-layout {
 		grid-template-columns: 1fr;
+	}
+
+	.hero-grid,
+	.services-visual-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.hero-media,
+	.home-wide-media,
+	.services-media,
+	.services-media-large,
+	.contact-media,
+	.landing-media {
+		aspect-ratio: 16 / 10;
 	}
 }

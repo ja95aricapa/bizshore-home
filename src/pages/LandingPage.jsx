@@ -15,6 +15,14 @@ function LandingPage({ copy, lang }) {
 			/>
 
 			<section className='landing-card'>
+				<figure className='landing-media'>
+					<img
+						src='/images/ITPro-IT-Solution-Divi-Child-Theme-Image-27.jpg'
+						alt='Consultoria personalizada para transformacion digital'
+						loading='lazy'
+					/>
+				</figure>
+
 				<p className='badge'>Landing exclusiva</p>
 				<h1>{copy.landing.title}</h1>
 				<p className='page-subtitle'>{copy.landing.subtitle}</p>

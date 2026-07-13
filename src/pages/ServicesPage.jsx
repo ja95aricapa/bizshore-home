@@ -16,6 +16,30 @@ function ServicesPage({ copy, lang }) {
 			<h1>{copy.services.title}</h1>
 			<p className='page-subtitle'>{copy.services.subtitle}</p>
 
+			<div className='services-visual-grid'>
+				<figure className='services-media services-media-large'>
+					<img
+						src='/images/ITPro-IT-Solution-Divi-Child-Theme-Image-20.jpg'
+						alt='Reunion tecnica del equipo de desarrollo'
+						loading='lazy'
+					/>
+				</figure>
+				<figure className='services-media'>
+					<img
+						src='/images/ITPro-IT-Solution-Divi-Child-Theme-Image-14.jpg'
+						alt='Consultores colaborando en decisiones de software'
+						loading='lazy'
+					/>
+				</figure>
+				<figure className='services-media'>
+					<img
+						src='/images/ITPro-IT-Solution-Divi-Child-Theme-Image-43.jpg'
+						alt='Infraestructura de estaciones de trabajo tecnicas'
+						loading='lazy'
+					/>
+				</figure>
+			</div>
+
 			<div className='services-grid'>
 				{copy.services.list.map((service) => (
 					<article key={service.name} className='service-card'>
