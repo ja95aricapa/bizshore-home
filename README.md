@@ -23,7 +23,7 @@ Sitio web corporativo informativo para BizShore Solutions SAS, desarrollado con 
 
 ## Variables de entorno
 
-- VITE_SITE_URL: URL publica del sitio (ejemplo: https://www.bizshore.com)
+- VITE_SITE_URL: URL publica del sitio (ejemplo: <https://www.bizshore.net>)
 - VITE_FORMSPREE_ENDPOINT: endpoint de Formspree para el formulario de contacto
 
 Si VITE_FORMSPREE_ENDPOINT no existe, el formulario mostrara aviso y ofrecera envio por correo directo.

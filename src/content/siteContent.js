@@ -135,8 +135,8 @@ export const content = {
 			details: [
 				{
 					label: "Correo",
-					value: "contacto@bizshore.com",
-					href: "mailto:contacto@bizshore.com",
+					value: "contacto@bizshore.net",
+					href: "mailto:contacto@bizshore.net",
 				},
 				{
 					label: "Telefono",
@@ -361,8 +361,8 @@ export const content = {
 			details: [
 				{
 					label: "Email",
-					value: "contacto@bizshore.com",
-					href: "mailto:contacto@bizshore.com",
+					value: "contacto@bizshore.net",
+					href: "mailto:contacto@bizshore.net",
 				},
 				{ label: "Phone", value: "+57 3187519090", href: "tel:+573187519090" },
 				{

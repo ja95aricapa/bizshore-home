@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://www.bizshore.com/sitemap.xml
+Sitemap: https://www.bizshore.net/sitemap.xml

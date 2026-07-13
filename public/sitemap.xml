@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://www.bizshore.com/</loc>
+    <loc>https://www.bizshore.net/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://www.bizshore.com/servicios</loc>
+    <loc>https://www.bizshore.net/servicios</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://www.bizshore.com/contactenos</loc>
+    <loc>https://www.bizshore.net/contactenos</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.bizshore.com/servicios/diagnostico-software</loc>
+    <loc>https://www.bizshore.net/servicios/diagnostico-software</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>

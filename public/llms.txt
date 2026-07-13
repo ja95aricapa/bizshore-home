@@ -3,18 +3,18 @@
 > Company website for technology consulting, custom software development, software maintenance, and software audit services in Cali, Colombia.
 
 ## Canonical Site
-- https://www.bizshore.com/
+- https://www.bizshore.net/
 
 ## Public Pages
-- https://www.bizshore.com/
-- https://www.bizshore.com/servicios
-- https://www.bizshore.com/contactenos
-- https://www.bizshore.com/servicios/diagnostico-software
+- https://www.bizshore.net/
+- https://www.bizshore.net/servicios
+- https://www.bizshore.net/contactenos
+- https://www.bizshore.net/servicios/diagnostico-software
 
 ## Organization
 - Name: BizShore Solutions SAS
 - Location: Cali, Valle del Cauca, Colombia
-- Contact Email: contacto@bizshore.com
+- Contact Email: contacto@bizshore.net
 - Contact Phone: +57 3187519090
 
 ## Service Areas
