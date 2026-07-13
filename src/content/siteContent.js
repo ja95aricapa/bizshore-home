@@ -52,7 +52,10 @@ export const content = {
 			],
 		},
 		home: {
+			sectionEyebrow: "Por que elegirnos",
 			sectionTitle: "Por que BizShore",
+			sectionIntro:
+				"Combinamos criterio de ingenieria, foco en el cliente y procesos claros para entregar software que sostiene tu operacion.",
 			cards: [
 				{
 					title: "Acompanamiento cercano",
@@ -72,9 +75,14 @@ export const content = {
 			],
 		},
 		services: {
+			eyebrow: "Servicios",
 			title: "Servicios",
 			subtitle:
 				"Servicios pensados para empresas que necesitan evolucionar su software con seguridad y estrategia.",
+			listEyebrow: "Catalogo",
+			listTitle: "Como impulsamos tu software",
+			listIntro:
+				"Cuatro lineas de servicio disenadas para acompañarte desde el diagnostico hasta la entrega sostenida.",
 			list: [
 				{
 					name: "Consultoria en tecnologia y software",
@@ -119,9 +127,11 @@ export const content = {
 			],
 		},
 		contact: {
+			eyebrow: "Hablemos",
 			title: "Contactenos",
 			subtitle:
 				"Conversemos sobre tu necesidad. Te respondemos en horario habil y te proponemos una ruta clara de trabajo.",
+			cardEyebrow: "Informacion",
 			details: [
 				{
 					label: "Correo",
@@ -145,10 +155,17 @@ export const content = {
 				},
 			],
 			form: {
+				eyebrow: "Formulario",
+				title: "Envianos un mensaje",
+				intro: "Cuéntanos sobre tu proyecto y te respondemos en horario hábil.",
 				name: "Nombre",
+				namePlaceholder: "Tu nombre completo",
 				email: "Correo",
+				emailPlaceholder: "tu@correo.com",
 				message: "Mensaje",
+				messagePlaceholder: "Describe brevemente lo que necesitas.",
 				submit: "Enviar mensaje",
+				submitting: "Enviando...",
 				note: "El formulario envia datos por Formspree cuando se configura el endpoint.",
 				endpointMissing:
 					"Falta configurar VITE_FORMSPREE_ENDPOINT. Mientras tanto, usa correo directo.",
@@ -159,6 +176,7 @@ export const content = {
 			},
 		},
 		landing: {
+			eyebrow: "Landing exclusiva",
 			title: "Diagnostico tecnico inicial sin costo",
 			subtitle:
 				"Landing independiente para campanas: evaluamos tu estado actual de software y te entregamos recomendaciones accionables.",
@@ -170,8 +188,43 @@ export const content = {
 			cta: "Solicitar diagnostico",
 			disclaimer:
 				"Esta pagina existe en ruta publica pero no aparece en el menu principal.",
+			processEyebrow: "Proceso",
+			processTitle: "Como trabajamos tu diagnostico",
+			processIntro:
+				"Un flujo claro y por fases para darte resultados accionables sin sacrificar tu tiempo operativo.",
+			processSteps: [
+				{
+					title: "Reunion inicial",
+					description:
+						"Conversamos sobre tu plataforma, objetivos y restricciones para enmarcar el diagnostico.",
+				},
+				{
+					title: "Analisis tecnico",
+					description:
+						"Revisamos codigo, arquitectura, dependencias y operaciones para mapear el estado actual.",
+				},
+				{
+					title: "Plan de accion",
+					description:
+						"Entregamos un informe ejecutivo con prioridades, riesgos y una ruta recomendada a 30-90 dias.",
+				},
+			],
 		},
-		footer: "BizShore Solutions SAS - Cali, Colombia",
+		notFound: {
+			eyebrow: "Error 404",
+			title: "Pagina no encontrada",
+			subtitle:
+				"No pudimos encontrar lo que buscabas. Volvamos al inicio o exploremos los servicios disponibles.",
+			primary: "Volver al inicio",
+			secondary: "Ver servicios",
+		},
+		footer: {
+			tagline:
+				"Consultoria y desarrollo de software a medida en Cali, Colombia.",
+			navTitle: "Navegacion",
+			contactTitle: "Contacto",
+			rights: "Todos los derechos reservados.",
+		},
 	},
 	en: {
 		brand: "BizShore Solutions SAS",
@@ -226,7 +279,10 @@ export const content = {
 			],
 		},
 		home: {
+			sectionEyebrow: "Why choose us",
 			sectionTitle: "Why BizShore",
+			sectionIntro:
+				"We combine engineering judgment, customer focus, and transparent processes to ship software that holds up under real operations.",
 			cards: [
 				{
 					title: "Close partnership",
@@ -246,9 +302,14 @@ export const content = {
 			],
 		},
 		services: {
+			eyebrow: "Services",
 			title: "Services",
 			subtitle:
 				"Services designed for companies that need to evolve software with strategy and confidence.",
+			listEyebrow: "Catalog",
+			listTitle: "How we move your software forward",
+			listIntro:
+				"Four service lines designed to support you from initial assessment through sustained delivery.",
 			list: [
 				{
 					name: "Technology and software consulting",
@@ -292,9 +353,11 @@ export const content = {
 			],
 		},
 		contact: {
+			eyebrow: "Let's talk",
 			title: "Contact",
 			subtitle:
 				"Tell us about your challenge. We reply during business hours with a clear execution approach.",
+			cardEyebrow: "Information",
 			details: [
 				{
 					label: "Email",
@@ -314,10 +377,17 @@ export const content = {
 				},
 			],
 			form: {
+				eyebrow: "Form",
+				title: "Send us a message",
+				intro: "Tell us about your project and we will reply during business hours.",
 				name: "Name",
+				namePlaceholder: "Your full name",
 				email: "Email",
+				emailPlaceholder: "you@email.com",
 				message: "Message",
+				messagePlaceholder: "Briefly describe what you need.",
 				submit: "Send message",
+				submitting: "Sending...",
 				note: "The form sends data through Formspree when endpoint is configured.",
 				endpointMissing:
 					"VITE_FORMSPREE_ENDPOINT is missing. For now, please use direct email.",
@@ -328,6 +398,7 @@ export const content = {
 			},
 		},
 		landing: {
+			eyebrow: "Featured landing",
 			title: "Free initial technical assessment",
 			subtitle:
 				"Independent campaign landing page: we evaluate your software landscape and deliver actionable recommendations.",
@@ -339,7 +410,42 @@ export const content = {
 			cta: "Request assessment",
 			disclaimer:
 				"This page is publicly available by URL path but hidden from the main navigation menu.",
+			processEyebrow: "Process",
+			processTitle: "How we run the assessment",
+			processIntro:
+				"A clear, phased workflow that delivers actionable insight without disrupting your operations.",
+			processSteps: [
+				{
+					title: "Kickoff call",
+					description:
+						"We align on your platform, goals, and constraints to frame the assessment.",
+				},
+				{
+					title: "Technical analysis",
+					description:
+						"We review code, architecture, dependencies, and operations to map the current state.",
+				},
+				{
+					title: "Action plan",
+					description:
+						"You receive an executive report with priorities, risks, and a 30-90 day roadmap.",
+				},
+			],
 		},
-		footer: "BizShore Solutions SAS - Cali, Colombia",
+		notFound: {
+			eyebrow: "Error 404",
+			title: "Page not found",
+			subtitle:
+				"We could not find what you were looking for. Head back home or browse our services.",
+			primary: "Back to home",
+			secondary: "See services",
+		},
+		footer: {
+			tagline:
+				"Software consulting and custom development based in Cali, Colombia.",
+			navTitle: "Navigation",
+			contactTitle: "Contact",
+			rights: "All rights reserved.",
+		},
 	},
 };

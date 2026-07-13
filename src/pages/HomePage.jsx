@@ -18,8 +18,8 @@ function HomePage({ copy, lang }) {
 			<section className='hero-section reveal-up'>
 				<div className='hero-grid'>
 					<div className='hero-copy'>
-						<p className='badge'>{copy.hero.badge}</p>
-						<h1>{copy.hero.title}</h1>
+						<p className='badge hero-eyebrow'>{copy.hero.badge}</p>
+						<h1 className='hero-title'>{copy.hero.title}</h1>
 						<p className='hero-subtitle'>{copy.hero.subtitle}</p>
 
 						<div className='hero-actions'>
@@ -55,7 +55,11 @@ function HomePage({ copy, lang }) {
 			</section>
 
 			<section className='section reveal-up delay-1'>
-				<h2>{copy.home.sectionTitle}</h2>
+				<header className='section-heading'>
+					<span className='section-eyebrow'>{copy.home.sectionEyebrow}</span>
+					<h2>{copy.home.sectionTitle}</h2>
+					<p className='page-subtitle'>{copy.home.sectionIntro}</p>
+				</header>
 				<figure className='home-wide-media'>
 					<img
 						src='/images/ITPro-IT-Solution-Divi-Child-Theme-Image-22.jpg'
@@ -64,9 +68,14 @@ function HomePage({ copy, lang }) {
 					/>
 				</figure>
 				<div className='feature-grid'>
-					{copy.home.cards.map((card) => (
+					{copy.home.cards.map((card, index) => (
 						<article key={card.title} className='feature-card'>
-							<h3>{card.title}</h3>
+							<h3>
+								<span className='feature-icon' aria-hidden='true'>
+									{String(index + 1).padStart(2, "0")}
+								</span>
+								{card.title}
+							</h3>
 							<p>{card.description}</p>
 						</article>
 					))}

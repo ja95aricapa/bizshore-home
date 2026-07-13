@@ -4,7 +4,7 @@ import SeoHead from "../seo/SeoHead";
 
 function NotFoundPage({ copy, lang }) {
 	return (
-		<section className='section reveal-up'>
+		<div className='notfound-shell reveal-up'>
 			<SeoHead
 				meta={{
 					title: copy.seo.notFound.title,
@@ -15,12 +15,37 @@ function NotFoundPage({ copy, lang }) {
 				}}
 			/>
 
-			<h1>404</h1>
-			<p className='page-subtitle'>La pagina que buscas no existe.</p>
-			<Link className='btn btn-ghost' to={routes.home}>
-				Volver al inicio
-			</Link>
-		</section>
+			<section className='notfound-card'>
+				<figure className='notfound-media'>
+					<img
+						src='/images/ITPro-IT-Solution-Divi-Child-Theme-Image-15.jpg'
+						alt='Ilustracion de pieza perdida en el sistema'
+						loading='lazy'
+					/>
+					<div className='notfound-media-overlay' aria-hidden='true' />
+				</figure>
+
+				<div className='notfound-body'>
+					<span className='badge notfound-eyebrow'>
+						{copy.notFound.eyebrow}
+					</span>
+					<p className='notfound-code' aria-hidden='true'>
+						404
+					</p>
+					<h1>{copy.notFound.title}</h1>
+					<p className='page-subtitle'>{copy.notFound.subtitle}</p>
+
+					<div className='notfound-actions'>
+						<Link className='btn btn-primary' to={routes.home}>
+							{copy.notFound.primary}
+						</Link>
+						<Link className='btn btn-ghost' to={routes.services}>
+							{copy.notFound.secondary}
+						</Link>
+					</div>
+				</div>
+			</section>
+		</div>
 	);
 }
 
