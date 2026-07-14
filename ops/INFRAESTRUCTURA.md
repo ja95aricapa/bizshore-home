@@ -62,7 +62,7 @@ La más segura de las tres: ninguna llave SSH viaja a la instancia. Detalle:
 
 **GitHub Secrets**: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`.
 
-### 2. Cloudflare / VPS dedicado (Terraform, opcional, no activa hoy)
+### 2. Cloudflare / VPS dedicado (Terraform, **muerta**)
 
 ```
 GitHub Actions → terraform apply (Hetzner/Vultr VPS + tunel Cloudflare PROPIO,
@@ -73,10 +73,11 @@ GitHub Actions → terraform apply (Hetzner/Vultr VPS + tunel Cloudflare PROPIO,
     → docker compose pull && up -d
 ```
 
-**GitHub Secrets**: `CLOUDFLARE_API_TOKEN`, `VPS_SSH_PRIVATE_KEY`,
-`VPS_SSH_USER`. Esta es la ruta con el modelo de confianza más débil de las
-tres (llave SSH root persistente en un secret de GitHub). Ver punto abierto
-en "Pendientes de seguridad" abajo.
+**GitHub Secrets (stale)**: `CLOUDFLARE_API_TOKEN`, `VPS_SSH_PRIVATE_KEY`,
+`VPS_SSH_USER`. **Esta ruta está muerta: no existe VPS activo** (confirmado
+2026-07-14). La entrada queda en el repo solo como referencia histórica;
+los secrets en GitHub hay que rotarlos y el módulo Terraform va a
+`disabled/`. Detalle: "Pendientes de seguridad" más abajo.
 
 ### 3. `bizshore-01` — patrón de red compartida (manual, verificado, sin CI)
 
@@ -142,17 +143,51 @@ versionarlo).
     el patrón recomendado para apps nuevas — ver "Cómo publicar una app
     nueva" en `ops/platform/README.md`.
 
-## Pendientes de seguridad (a revisar, no resueltos todavía)
+## Pendientes de seguridad
 
-1. **Higiene de llaves SSH/secrets entre Acer y `bizshore-01`**: confirmar
-   qué llave se usa para qué (interactiva vs CI), que ninguna se reutilice
-   fuera de su alcance previsto, y si conviene restringir la llave
-   interactiva del Acer de alguna forma.
-2. **Ruta SSH root de `autotrade_bot_app` (Cloudflare/VPS)**: `VPS_SSH_PRIVATE_KEY`
-   con usuario `root` persistente en un secret de GitHub es el eslabón más
-   débil de las tres rutas de deploy. Evaluar migrar al patrón SSM (sin SSH,
-   como el path de AWS) o al menos restringir a un usuario no-root con sudo
-   scoped.
-3. **CI/CD para la ruta `bizshore-01`**: hoy es 100% manual. Si se decide
-   poner `autotrade_bot_app` en vivo ahí, necesita el mismo rigor que la
-   ruta AWS (gestión de secretos real, no `.env` copiado a mano por rsync).
+### ✅ Resueltos (auditados el 2026-07-14)
+
+1. **Higiene de llaves SSH entre Acer y `bizshore-01`**: limpio. Hay tres
+   llaves y los roles están estrictamente separados — nunca comparten
+   secreto ni alcance:
+
+   | Llave | Alcance server-side | Dónde se usa |
+   | --- | --- | --- |
+   | `~/.ssh/bizshore-server-hp-01` (Acer) | SSH interactivo, sin restricción | Solo en sesiones manuales del Acer (`ssh bizshore-server`, `rsync` desde local, `docker compose` ad-hoc). **Nunca en CI ni en otro flujo.** |
+   | `~/.ssh/bizshore-home-deploy` | `command="/usr/bin/rrsync -W /data/static-sites/bizshore-home/"` en `authorized_keys` del server | Solo en `.github/workflows/deploy.yml` de `bizshore-home`, vía el secret `DEPLOY_SSH_KEY`. No shell, solo escribe el `dist/` de la SPA. |
+
+   No hace falta restringir más la llave interactiva del Acer — el
+   perímetro real está en el Tunnel (no hay puerto 22 expuesto a
+   internet) y los secretos con capacidad de escribir están
+   shell-restricted del lado del server.
+
+2. **Ruta Cloudflare/VPS de `autotrade_bot_app`**: **cerrada — código muerto,
+   no hay VPS activo**. La ruta con `VPS_SSH_PRIVATE_KEY` / `VPS_SSH_USER`
+   como `root` en un secret de GitHub era el eslabón más débil de las
+   tres; con `infra/modules/cloudflare/` sin proveedor real, endurecerla
+   gastaría tiempo en infraestructura muerta. Cleanup recomendado (no
+   aplicado todavía):
+   - Mover `autotrade_bot_app/infra/modules/cloudflare/` a
+     `infra/modules/cloudflare.disabled/` (o marcarlo con `DISABLED`
+     visible arriba de cada `*.tf`).
+   - Cambiar el `default = "cloudflare"` en `infra/variables.tf` a
+     `default = "aws"` — un `terraform apply` sin overrides ya no intenta
+     crear el VPS.
+   - Borrar el job `Deploy to VPS via SSH (Cloudflare Path)` y los inputs
+     `CLOUDFLARE_API_TOKEN` / `VPS_SSH_PRIVATE_KEY` / `VPS_SSH_USER` en
+     `.github/workflows/reusable-deploy.yml`.
+   - Rotar los GitHub Secrets `CLOUDFLARE_API_TOKEN`, `VPS_SSH_PRIVATE_KEY`,
+     `VPS_SSH_USER` del repo.
+
+   AWS (vía SSM, sin SSH) es la ruta que el bot usa productivamente;
+   `bizshore-01` (manual, red compartida) es la nueva. La de VPS no hace
+   falta.
+
+### ⏳ Pendientes (no resueltos)
+
+3. **CI/CD para la ruta `bizshore-01`**: hoy es 100% manual (`rsync` +
+   `docker compose ... up -d reverse-proxy`). Si se decide poner
+   `autotrade_bot_app` en vivo ahí, necesita el mismo rigor que AWS
+   (gestión real de secretos — no `.env` copiado a mano — e idealmente
+   algo equivalente a `ssm_run_command` para no abrir más superficie
+   SSH). Decisión deliberadamente pospuesta para otra sesión.
