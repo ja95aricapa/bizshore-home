@@ -59,7 +59,14 @@ estructura completa, la convención de subdominios y los pasos para
 agregar un nuevo vhost.
 
 Para una primera instalación, sincronizar todo el directorio y recargar
-Caddy:
+Caddy. El helper `ops/caddy/sync.sh` automatiza el flujo (rsync +
+`caddy validate` + `caddy reload`):
+
+```bash
+./ops/caddy/sync.sh
+```
+
+Si preferís correr los pasos a mano, equivale a:
 
 ```bash
 rsync -az ops/caddy/ bizshore-server:/data/applications/platform/caddy/

@@ -62,20 +62,30 @@ porque Caddy fallara al solicitar el certificado ACME.
 5. Agregar `import apps/<nombre-app>.caddy` en el `Caddyfile` raiz.
 6. Asegurar que el DNS del subdominio resuelve a la IP publica del
    server (o al CNAME del apex).
-7. Sincronizar al server y recargar Caddy:
+7. Sincronizar al server y recargar Caddy. El helper `ops/caddy/sync.sh`
+   automatiza el rsync + `caddy validate` + `caddy reload`:
+   ```bash
+   ./ops/caddy/sync.sh
+   ```
+   Equivale a:
    ```bash
    rsync -az ops/caddy/ bizshore-server:/data/applications/platform/caddy/
    ssh bizshore-server \
+     "cd /data/applications/platform && docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile"
+   ssh bizshore-server \
      "cd /data/applications/platform && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile"
    ```
+   El alias SSH default es `bizshore-server`; override con la env var
+   `BIZSHORE_SERVER`. Si la llave tiene passphrase, cargarla antes con
+   `ssh-add ~/.ssh/bizshore-server-hp-01`.
 
 ## Sincronizacion con el server (estado actual)
 
-Por ahora la sincronizacion es **manual**: desde la maquina local copiar
-`ops/caddy/` al server y recargar Caddy. Cuando el server tenga varios
-vhosts y el cambio sea frecuente, considerar automatizar el rsync y el
-reload dentro de `.github/workflows/deploy.yml` (con una llave SSH
-separada restringida a `caddy reload`). Eso queda como mejora futura.
+Por ahora la sincronizacion es **manual** (vía `sync.sh`). Cuando el
+server tenga varios vhosts y el cambio sea frecuente, considerar
+automatizar el rsync y el reload dentro de
+`.github/workflows/deploy.yml` (con una llave SSH separada restringida
+a `caddy reload`). Eso queda como mejora futura.
 
 ## Bug conocido resuelto
 
