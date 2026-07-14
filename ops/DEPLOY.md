@@ -1,5 +1,8 @@
 # Deploy de bizshore-home a bizshore-server
 
+> Mapa completo de infraestructura (todas las apps, credenciales, y qué vive
+> dónde en el server): `ops/INFRAESTRUCTURA.md`.
+
 ## 1. Directorio en el servidor
 
 ```bash
