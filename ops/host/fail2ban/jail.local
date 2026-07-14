@@ -1,0 +1,38 @@
+# fail2ban jail.local for bizshore-01.
+#
+# Not a Docker service — fail2ban runs as a host daemon, watching sshd's
+# auth log directly. Install: `sudo apt install fail2ban`, then this file
+# goes to /etc/fail2ban/jail.local (jail.local overrides jail.conf without
+# being overwritten by package upgrades — never edit jail.conf directly).
+#
+# Why this matters here specifically: bizshore-01's sshd now accepts
+# connections from 5 different keys (1 interactive + 4 CI-restricted, see
+# bizshore-home/ops/DEPLOY.md §6 and autotrade_bot_app/ops/DEPLOY-BIZSHORE01.md)
+# plus AllowUsers ja95aricapa ci-deploy (/etc/ssh/sshd_config.d/00-home-server-hardening.conf).
+# More authorized identities on one port raises the value of rate-limiting
+# brute-force attempts regardless of which key an attacker is guessing
+# against.
+
+[DEFAULT]
+# 1 hour ban, ramps up via bantime.increment below for repeat offenders.
+bantime = 1h
+findtime = 10m
+maxretry = 5
+
+# Ban time doubles on each repeat offense from the same IP, capped at 1
+# week. Makes persistent scanners increasingly expensive without needing
+# a permanent blocklist to maintain by hand.
+bantime.increment = true
+bantime.factor = 2
+bantime.maxtime = 1w
+
+# journald backend — Ubuntu 24.04+/26.04 ships auth logs in the systemd
+# journal; /var/log/auth.log is also present here (confirmed via `sudo
+# tail /var/log/auth.log` during the 2026-07-14 setup session) but
+# `backend = auto` lets fail2ban pick whichever is actually populated
+# without hardcoding a path that could go stale on a future OS upgrade.
+backend = auto
+
+[sshd]
+enabled = true
+port = ssh

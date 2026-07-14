@@ -78,6 +78,40 @@ Cualquier repo que quiera exponerse en `bizshore-01` sigue esta receta genérica
    backend real corriendo, un `502` limpio (sin loop de redirects) ya confirma que el
    circuito Tunnel → red compartida → proxy funciona.
 
+## Observabilidad: Uptime Kuma
+
+`compose.yaml` incluye un servicio `uptime-kuma` — a diferencia de
+`autotrade_bot_app` (un proyecto con su propio repo que se *une* a esta
+red), Kuma vive directamente acá porque monitorea la plataforma entera,
+no una sola app.
+
+Se expone siguiendo la misma receta de arriba (punto 4): agregar una
+ruta en Cloudflare a `http://uptime-kuma:3001`, sin TLS ni SNI (Kuma
+sirve HTTP plano). El primer acceso al hostname pide crear usuario/clave
+admin — hacerlo enseguida después de exponer la ruta, antes de que
+cualquier otra persona la encuentre primero.
+
+**Recomendado, no bloqueante**: poner ese hostname detrás de una
+política de Cloudflare Access (Zero Trust → Access → Applications) como
+capa extra sobre el login propio de Kuma — mismo criterio de defensa en
+profundidad que ya se usa en el resto de esta arquitectura (SSH
+restringido + sudoers acotado + esto).
+
+Una vez con el usuario admin creado, configurar monitores HTTP(S) para
+cada hostname publicado (`www.bizshore.net`, `trade.bizshore.net`, etc.)
+y una notificación (Telegram, webhook, email) — sin eso, Kuma solo
+acumula datos sin avisar de nada.
+
+## Herramientas de host (fuera de Docker)
+
+`ops/host/` versiona configuración para software que corre directo en
+el SO del server, no en un container — `fail2ban` (protección SSH) y
+`restic` (backups cifrados). Cada uno tiene su propio README con los
+pasos de instalación exactos. No son parte de `compose.yaml` porque
+operan a nivel de sistema operativo (fail2ban lee logs de auth del host;
+restic necesita acceso de lectura a rutas fuera de lo que cualquier
+container debería tener montado).
+
 ## Sincronización con el server
 
 Igual que `ops/caddy/`: manual por ahora. Cambios a este `compose.yaml` requieren

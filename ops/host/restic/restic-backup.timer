@@ -1,0 +1,14 @@
+# Runs restic-backup.service daily at 03:15 server time, with random
+# jitter so it doesn't always land at the exact same second (harmless
+# here with one server, but a fine habit). Install to
+# /etc/systemd/system/restic-backup.timer.
+[Unit]
+Description=Daily restic backup for bizshore-01
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

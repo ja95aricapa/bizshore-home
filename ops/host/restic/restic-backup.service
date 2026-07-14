@@ -1,0 +1,20 @@
+# systemd unit for the restic backup script. Install to
+# /etc/systemd/system/restic-backup.service — triggered by
+# restic-backup.timer, not run directly by cron (systemd gives us
+# `systemctl status`, `journalctl -u restic-backup` and automatic retry
+# semantics cron doesn't).
+#
+# Inactive until ops/host/restic/README.md's setup steps are done AND
+# `systemctl enable --now restic-backup.timer` is run — installing this
+# file alone does not start anything.
+[Unit]
+Description=restic backup of bizshore-01 /data
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/restic-backup.sh
+# Runs as root — /data has files owned by different service users
+# (ci-deploy, root, etc.) and restic needs read access to all of them.
+User=root

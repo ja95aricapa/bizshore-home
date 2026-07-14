@@ -48,9 +48,41 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  uptime-kuma:
+    # Pinned to a specific patch, not :latest — same reproducibility
+    # rationale as cloudflared above. Check for newer stable releases at
+    # https://github.com/louislam/uptime-kuma/releases before bumping;
+    # smoke-test (login still works, existing monitors survive) before
+    # trusting a version bump in prod.
+    image: louislam/uptime-kuma:1.23.16
+    container_name: uptime-kuma
+    restart: unless-stopped
+
+    volumes:
+      - uptime_kuma_data:/app/data
+
+    networks:
+      - edge
+
+    security_opt:
+      - no-new-privileges:true
+
+    # Sin ports: — no publica al host. Llega por Cloudflare Tunnel como
+    # cualquier app nueva del patron (ver ops/platform/README.md "Como
+    # publicar una app nueva en este host"): ruta en el dashboard de
+    # Cloudflare -> http://uptime-kuma:3001, sin TLS ni Origin Server
+    # Name (Kuma sirve HTTP plano, el Tunnel termina TLS).
+    #
+    # El dashboard admin de Kuma tiene su propio login (se crea en el
+    # primer acceso) — igual, recomendado poner el hostname detras de
+    # una politica de Cloudflare Access (Zero Trust -> Access ->
+    # Applications) para no depender solo de esa contrasena. Ver
+    # ops/platform/README.md.
+
 networks:
   edge:
 
 volumes:
   caddy_data:
   caddy_config:
+  uptime_kuma_data:

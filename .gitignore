@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+# fail2ban's own convention requires this exact filename (jail.local
+# overrides jail.conf) — versioned deliberately, not a stray local
+# override file the *.local rule above is meant to catch.
+!ops/host/fail2ban/jail.local
 .env
 .env.*
 !.env.example

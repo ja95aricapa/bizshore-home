@@ -269,3 +269,26 @@ git checkout HEAD~1 -- ops/caddy/
 > git en el server — es solo un directorio sincronizado por rsync.
 > Para hacer `git checkout` desde el server como en el primer ejemplo,
 > hay que inicializarlo como worktree: `git clone --bare . /var/repos/bizshore-home.git && git --git-dir=/var/repos/bizshore-home.git --work-tree=/data/applications/platform checkout -f main`. **No hacerlo todavía** — los rollbacks hoy son desde la máquina local (segundo bloque de comandos) y vuelven a deployarse por CI.
+
+## 7. Endurecimiento del host: monitoreo, backups y SSH
+
+Herramientas que no son específicas de ningún proyecto — protegen y dan
+visibilidad sobre el server entero. Versionadas en `ops/host/`, cada una
+con su propio README con los pasos exactos:
+
+- **`ops/host/fail2ban/`** — rate-limiting de intentos SSH fallidos.
+  Listo para instalar, sin decisiones pendientes.
+- **`ops/host/restic/`** — backups cifrados e incrementales de `/data`.
+  Preparado pero no activado — falta elegir destino (Backblaze B2, otro
+  host propio por SFTP, o solo local). Ver el README para las 3
+  opciones con costos y trade-offs.
+- **Uptime Kuma** — no vive en `ops/host/` porque sí es un container
+  (`uptime-kuma` en `ops/platform/compose.yaml`), pero es la pieza de
+  monitoreo/alertas que le da sentido a fail2ban + restic — sin
+  visibilidad, un ban o un backup roto pasan desapercibidos. Ver
+  `ops/platform/README.md` → "Observabilidad: Uptime Kuma" para
+  exponerlo vía Cloudflare Tunnel igual que cualquier otra app del
+  patrón.
+
+Ninguna de las tres depende de las otras — se pueden instalar en
+cualquier orden, o solo una si por ahora alcanza con eso.
