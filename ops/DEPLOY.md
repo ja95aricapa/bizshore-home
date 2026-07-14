@@ -34,7 +34,7 @@ del mundo, no es reservable). El workflow ya usa `tailscale/github-action`
 para unirse al tailnet solo durante el job y desconectarse al terminar —
 así el SSH sigue expuesto únicamente dentro de tu red Tailscale, como hoy.
 
-Pasos en el admin de Tailscale (https://login.tailscale.com/admin/settings/oauth):
+Pasos en el admin de Tailscale (<https://login.tailscale.com/admin/settings/oauth>):
 
 1. Crear un **OAuth client** con scope `devices:write` y el tag `tag:ci`.
 2. En `Access Controls`, autorizar `tag:ci` a alcanzar el puerto 22 de
@@ -53,13 +53,33 @@ Pasos en el admin de Tailscale (https://login.tailscale.com/admin/settings/oauth
 
 ## 4. Aplicar el Caddyfile (una sola vez)
 
-Ver `ops/caddy/Caddyfile.snippet` en este repo — reemplaza los dos bloques
-`:80 {}` duplicados en `/data/applications/platform/caddy/Caddyfile` por
-bloques con dominio explícito, y recarga Caddy sin downtime:
+El Caddyfile del server ahora sigue una **estructura modular** versionada
+en este repo bajo `ops/caddy/`. Ver `ops/caddy/README.md` para la
+estructura completa, la convención de subdominios y los pasos para
+agregar un nuevo vhost.
+
+Para una primera instalación, sincronizar todo el directorio y recargar
+Caddy:
 
 ```bash
-cd /data/applications/platform && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+rsync -az ops/caddy/ bizshore-server:/data/applications/platform/caddy/
+ssh bizshore-server "cd /data/applications/platform && docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile"
+ssh bizshore-server "cd /data/applications/platform && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile"
 ```
+
+> Migración desde el Caddyfile viejo: el archivo anterior tenía **dos
+> bloques `:80 {}` duplicados** que servían `/srv/static/main` para
+> cualquier hostname. La estructura modular los reemplaza por vhosts
+> explícitos (`apps/bizshore-home.caddy` para el sitio corporativo,
+> `apps/_legacy-main.caddy` como placeholder transitorio del contenido
+> legacy). Ver `ops/caddy/README.md` antes de aplicar.
+
+### Mejora futura
+
+Cuando el server tenga varios vhosts y los cambios al Caddyfile sean
+frecuentes, conviene automatizar el rsync y el reload dentro de
+`.github/workflows/deploy.yml` con una llave SSH separada restringida a
+`caddy reload`. Por ahora la sincronización es manual.
 
 ## 5. Primer deploy
 

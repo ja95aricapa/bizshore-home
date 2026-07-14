@@ -1,0 +1,61 @@
+# PLANTILLA de vhost para una nueva aplicacion en bizshore-server.
+#
+# Este archivo NO debe importarse desde Caddyfile. Es solo referencia
+# para crear un nuevo apps/<nombre>.caddy. Pasos:
+#
+#   1. Copiar este archivo a apps/<nombre-app>.caddy
+#   2. Reemplazar los placeholders {{...}} por valores reales
+#   3. Validar localmente (ver README):
+#        docker run --rm -v "$PWD/ops/caddy:/etc/caddy" \
+#          caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+#   4. Agregar `import apps/<nombre-app>.caddy` en Caddyfile
+#   5. Aplicar en el server con `caddy reload`
+#
+# Elegir UNA de las dos variantes de abajo (estatica o reverse-proxy) y
+# borrar la otra. No usar ambas en el mismo archivo.
+
+# ---- VARIANTE A: sitio estatico (file_server) ----
+# Usar cuando la app se sirve como archivos estaticos desde un directorio
+# del server, igual que bizshore-home.
+
+# {{DOMINIO}} {
+#     root * {{RUTA_DENTRO_DE_CADDY}}
+#     encode zstd gzip
+#     try_files {path} /index.html   # quitar si NO es SPA
+#     file_server
+#
+#     header {
+#         X-Content-Type-Options nosniff
+#         X-Frame-Options DENY
+#         Referrer-Policy strict-origin-when-cross-origin
+#         Permissions-Policy "geolocation=(), microphone=(), camera=()"
+#         -Server
+#     }
+# }
+
+# ---- VARIANTE B: reverse proxy a un backend ----
+# Usar cuando la app corre como servicio en otro puerto/host (Docker
+# Compose, contenedor separado, otra IP del tailnet, etc.).
+
+# {{DOMINIO}} {
+#     reverse_proxy {{UPSTREAM}} {
+#         # header_up Host {host}
+#         # header_up X-Real-IP {remote_host}
+#         # header_up X-Forwarded-For {remote_host}
+#         # header_up X-Forwarded-Proto {scheme}
+#         # transport http {
+#         #     dial_timeout 5s
+#         #     response_header_timeout 30s
+#         # }
+#     }
+#
+#     encode zstd gzip
+#
+#     header {
+#         X-Content-Type-Options nosniff
+#         X-Frame-Options SAMEORIGIN   # DENY rompe frames legitimos del backend
+#         Referrer-Policy strict-origin-when-cross-origin
+#         Permissions-Policy "geolocation=(), microphone=(), camera=()"
+#         -Server
+#     }
+# }

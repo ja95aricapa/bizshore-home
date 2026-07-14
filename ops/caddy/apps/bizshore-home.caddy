@@ -1,0 +1,21 @@
+# Vhost: sitio corporativo bizshore-home (SPA React/Vite).
+#
+# Origen de los archivos: GitHub Actions hace rsync de dist/ a
+# /data/static-sites/bizshore-home/, y un bind-mount del compose de Caddy
+# expone esa ruta como /srv/static/bizshore-home dentro del contenedor.
+# Ver .github/workflows/deploy.yml y ops/DEPLOY.md.
+
+bizshore.net, www.bizshore.net {
+    root * /srv/static/bizshore-home
+    encode zstd gzip
+    try_files {path} /index.html
+    file_server
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        -Server
+    }
+}

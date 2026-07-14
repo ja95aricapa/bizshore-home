@@ -1,0 +1,32 @@
+# Caddyfile raiz para bizshore-server.
+#
+# Este archivo es un agregador: importa un bloque por aplicacion desde
+# apps/*.caddy. Cada apps/*.caddy contiene un unico site block (vhost).
+#
+# Aplicar en el server con:
+#   cd /data/applications/platform
+#   docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+#
+# Pre-requisito: que este archivo y el directorio apps/ esten sincronizados
+# en /data/applications/platform/caddy/ dentro del contenedor de Caddy.
+# Mientras el sync no este automatizado, copiar a mano desde ops/caddy/ en
+# este repo. Ver ops/caddy/README.md para el flujo completo.
+#
+# Antes de esta version existian DOS bloques ":80 {}" duplicados que
+# servian /srv/static/main para cualquier hostname. Eso se reemplazo por
+# el vhost explicito apps/_legacy-main.caddy (marcado como transitorio
+# hasta definir que dominio debe absorber ese contenido).
+{
+    # Email de contacto para ACME/Let's Encrypt (certificados por vhost).
+    email contacto@bizshore.net
+    # Admin via docker socket ya viene configurado por compose; no exponer.
+    # Auto-HTTPS queda activado por defecto: Caddy solicita certs de
+    # Let's Encrypt para cada host que aparezca en un site block.
+}
+
+# Import explicito por aplicacion. Agregar una linea nueva por cada app
+# que se sume al server. Comentar la linea para desactivar el vhost sin
+# borrar el archivo.
+import apps/bizshore-home.caddy
+# import apps/_legacy-main.caddy   # ver apps/_legacy-main.caddy antes de activar
+# import apps/<otra-app>.caddy
