@@ -75,11 +75,11 @@ ssh bizshore-server "cd /data/applications/platform && docker compose exec caddy
 ```
 
 > Migración desde el Caddyfile viejo: el archivo anterior tenía **dos
-> bloques `:80 {}` duplicados** que servían `/srv/static/main` para
-> cualquier hostname. La estructura modular los reemplaza por vhosts
-> explícitos (`apps/bizshore-home.caddy` para el sitio corporativo,
-> `apps/_legacy-main.caddy` como placeholder transitorio del contenido
-> legacy). Ver `ops/caddy/README.md` antes de aplicar.
+> bloques `:80 {}` duplicados** que referenciaban `/srv/static/main` para
+> cualquier hostname. Se confirmó en el server que ese directorio no
+> existe (contenido fantasma, nunca montado), así que la estructura
+> modular lo reemplaza sin sustituto, solo con el vhost explícito
+> `apps/bizshore-home.caddy`. Ver `ops/caddy/README.md` antes de aplicar.
 
 ### Mejora futura
 

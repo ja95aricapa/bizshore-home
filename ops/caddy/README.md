@@ -12,7 +12,6 @@ ops/caddy/
 ├── README.md                  # Este archivo
 └── apps/
     ├── bizshore-home.caddy    # Vhost www.bizshore.net (sitio corporativo)
-    ├── _legacy-main.caddy     # Placeholder transitorio del ":80 {}" viejo
     └── _TEMPLATE.caddy        # Plantilla copiable para nuevas apps
 ```
 
@@ -90,12 +89,11 @@ a `caddy reload`). Eso queda como mejora futura.
 ## Bug conocido resuelto
 
 El Caddyfile viejo del server tenia DOS bloques `:80 {}` duplicados que
-servian `/srv/static/main` para cualquier hostname. Eso se reemplazo por:
+referenciaban `/srv/static/main` para cualquier hostname. Se confirmo en
+el server (`ls /srv/static/main`) que ese directorio **no existe** —
+contenido fantasma, nunca montado. Eso se reemplazo por:
 
 - Vhost explicito `bizshore.net, www.bizshore.net` en
   `apps/bizshore-home.caddy`.
-- Vhost transitorio `legacy.bizshore.internal` en `apps/_legacy-main.caddy`
-  para no perder accesibilidad al contenido legacy mientras se decide que
-  hacer con el.
 - Sin bloques `:80 {}` genericos: cada request debe matchear un vhost
   por hostname.

@@ -13,9 +13,10 @@
 # este repo. Ver ops/caddy/README.md para el flujo completo.
 #
 # Antes de esta version existian DOS bloques ":80 {}" duplicados que
-# servian /srv/static/main para cualquier hostname. Eso se reemplazo por
-# el vhost explicito apps/_legacy-main.caddy (marcado como transitorio
-# hasta definir que dominio debe absorber ese contenido).
+# referenciaban /srv/static/main para cualquier hostname. Se confirmo que
+# ese directorio no existe en el server (contenido fantasma, nunca
+# montado), asi que se elimino sin reemplazo. Cada request debe matchear
+# un vhost explicito por hostname.
 {
 	# Email de contacto para ACME/Let's Encrypt (certificados por vhost).
 	email contacto@bizshore.net
@@ -28,5 +29,4 @@
 # que se sume al server. Comentar la linea para desactivar el vhost sin
 # borrar el archivo.
 import apps/bizshore-home.caddy
-# import apps/_legacy-main.caddy   # ver apps/_legacy-main.caddy antes de activar
 # import apps/<otra-app>.caddy
