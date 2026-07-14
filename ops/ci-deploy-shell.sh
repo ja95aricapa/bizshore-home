@@ -49,6 +49,12 @@ exec &> >(tee -a "${log_file}")
 ts() { date -Iseconds; }
 log() { printf '[%s] %s\n' "$(ts)" "$*"; }
 
+# sshd invokes this script directly (no args) when it's set as a forced
+# `command="..."` in authorized_keys — the client's requested command lands
+# in $SSH_ORIGINAL_COMMAND, not in $1. Subcommands here are single bare
+# words, so plain word-splitting into positional params is safe.
+set -- ${SSH_ORIGINAL_COMMAND:-}
+
 case "${1:-}" in
   caddy-reload)
     log "subcommand=caddy-reload start"
