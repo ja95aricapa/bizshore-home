@@ -20,7 +20,15 @@
 {
 	# Email de contacto para ACME/Let's Encrypt (certificados por vhost).
 	email contacto@bizshore.net
-	# Admin via docker socket ya viene configurado por compose; no exponer.
+	# Bind explicito del admin API al loopback del contenedor
+	# (localhost:2019). Es el default de Caddy v2, pero declararlo
+	# explicito protege contra un cambio futuro del default y queda
+	# como documentacion visible: el admin API NO debe quedar
+	# alcanzable desde otros containers en la red 'edge' (que seria
+	# reachable como :2019 si se bindeara a 0.0.0.0). El reload se
+	# dispara via `docker compose exec caddy caddy reload ...` desde
+	# el host, asi que loopback-al-container alcanza.
+	admin localhost:2019
 	# Auto-HTTPS queda activado por defecto: Caddy solicita certs de
 	# Let's Encrypt para cada host que aparezca en un site block.
 }
