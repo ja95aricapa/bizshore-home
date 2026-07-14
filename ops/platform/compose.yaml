@@ -23,7 +23,17 @@ services:
       - no-new-privileges:true
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    # Pinned to 2026.7.1 — last stable date-based tag as of 2026-07-14
+    # (5 days old at pin time, no newer release). Reproducible deploys
+    # require a digest/literal tag, not :latest — :latest silently
+    # jumps on container recreates and can break tunnel connectivity
+    # if a release ships a behavior change in the connect flow. Bump
+    # deliberately after smoke-testing the new tag; check the dashboard
+    # of stable tags at
+    # https://hub.docker.com/r/cloudflare/cloudflared/tags?page=1&ordering=last_updated
+    # (the date-based line is what we pin; the commit-hash tags like
+    # 1887-ecb88678f136 are an alternative for stricter reproducibility).
+    image: cloudflare/cloudflared:2026.7.1
     container_name: cloudflared-tunnel
     restart: unless-stopped
 
