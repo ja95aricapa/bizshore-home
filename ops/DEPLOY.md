@@ -101,3 +101,167 @@ frecuentes, conviene automatizar el rsync y el reload dentro de
 
 Push a `main` dispara `.github/workflows/deploy.yml`: build con Vite y
 `rsync --delete` del `dist/` hacia `/data/static-sites/bizshore-home/`.
+
+## 6. Deploy automatizado de `ops/` (Caddyfile + compose.yaml del stack platform)
+
+Esta sección documenta cómo se pasó del flujo manual (`./ops/caddy/sync.sh`)
+al automatizado (`.github/workflows/deploy-ops.yml`). Es **one-time setup**
+en el servidor más el alta de nuevos secrets en GH.
+
+### 6.1 Por qué dos llaves SSH separadas
+
+`ops/caddy/` y `ops/platform/` se despliegan con dos operaciones distintas
+que requieren restricciones distintas, y `authorized_keys` no admite
+mezclar patrones:
+
+- **rsync de archivos** → llave restringida vía `rrsync` (la herramienta
+  incluye en el paquete `rsync`). El servidor corre `rrsync -W <path>`
+  como shell forzado para esa llave: puede escribir en un único path y
+  nada más. Patrón ya usado por la llave de SPA (`DEPLOY_SSH_KEY`).
+- **cargar la nueva config** → llave restringida vía `command="..."` que
+  apunta al wrapper `/usr/local/bin/ci-deploy-shell` (versionado en este
+  repo bajo `ops/ci-deploy-shell.sh`). El wrapper valida el subcomando
+  contra un allowlist (`caddy-reload`, `platform-up`, `autotrade-up`,
+  `rsync-ok`) y rechaza todo lo demás con exit 64.
+
+Mezclar las dos restricciones en una sola llave no funciona: `rrsync`
+necesita una shell normal para correr rsync remoto; `command="..."`
+reemplaza la shell entera. Por eso son dos llaves distintas y por eso
+el workflow las inyecta por separado (la de rsync vía
+`webfactory/ssh-agent`, la de shell directamente a `~/.ssh/`).
+
+### 6.2 Crear las dos llaves
+
+En tu máquina local:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/bizshore-home-ops-rsync  -N "" -C "github-actions-bizshore-home-ops-rsync"
+ssh-keygen -t ed25519 -f ~/.ssh/bizshore-home-ops-shell  -N "" -C "github-actions-bizshore-home-ops-shell"
+```
+
+### 6.3 Crear el usuario `ci-deploy` en el server
+
+```bash
+ssh bizshore-server
+sudo useradd -m -s /bin/bash ci-deploy       # shell=/bin/bash para que command= funcione; no le damos password.
+sudo install -m 700 -d /home/ci-deploy/.ssh
+```
+
+El usuario existe solo para hospedar las llaves de CI; ningún login
+interactivo es posible (no tiene password y el único método de auth es
+la llave restringida). No agregarlo a `docker` group — sus privilegios
+sobre docker se otorgan vía sudoers abajo.
+
+### 6.4 Instalar el wrapper restringido
+
+El wrapper vive en este repo bajo `ops/ci-deploy-shell.sh` y se copia
+tal cual al server:
+
+```bash
+ssh bizshore-server
+sudo install -m 755 ops/ci-deploy-shell.sh /usr/local/bin/ci-deploy-shell
+sudo chown root:root /usr/local/bin/ci-deploy-shell
+```
+
+Después de **cada cambio** al archivo en este repo, repetir el `install`
+para mantener el server sincronizado. Tratar `/usr/local/bin/ci-deploy-shell`
+como config — no editarlo directo en el server.
+
+### 6.5 Wirear las llaves en `authorized_keys`
+
+Reemplazar las públicas que correspondan y los paths reales:
+
+```bash
+ssh bizshore-server
+sudo tee -a /home/ci-deploy/.ssh/authorized_keys > /dev/null <<EOF
+command="/usr/bin/rrsync -W /data/applications/platform",no-agent-forwarding,no-X11-forwarding,no-pty $(cat ~/.ssh/bizshore-home-ops-rsync.pub)
+command="/usr/local/bin/ci-deploy-shell",no-agent-forwarding,no-X11-forwarding,no-pty $(cat ~/.ssh/bizshore-home-ops-shell.pub)
+EOF
+sudo chown -R ci-deploy:ci-deploy /home/ci-deploy/.ssh
+sudo chmod 600 /home/ci-deploy/.ssh/authorized_keys
+```
+
+### 6.6 `/etc/sudoers.d/ci-deploy` (alcance mínimo)
+
+El wrapper hace `sudo docker compose ...`, así que `ci-deploy` necesita
+sudo **sin password** pero solo para los comandos exactos que el wrapper
+corre. Nada más:
+
+```bash
+ssh bizshore-server
+sudo tee /etc/sudoers.d/ci-deploy > /dev/null <<'EOF'
+ci-deploy ALL=(root) NOPASSWD: /usr/bin/docker compose -f /data/applications/platform/compose.yaml *
+ci-deploy ALL=(root) NOPASSWD: /usr/bin/docker compose -f /data/applications/autotrade/docker-compose.yml *
+ci-deploy ALL=(root) NOPASSWD: /usr/bin/docker compose -f /data/applications/autotrade/docker-compose.yml -f /data/applications/autotrade/docker-compose.bizshore01.yml *
+EOF
+sudo chmod 440 /etc/sudoers.d/ci-deploy
+sudo visudo -c -f /etc/sudoers.d/ci-deploy   # validar sintaxis
+```
+
+Cualquier `sudo docker ...` que el wrapper intente correr fuera de esa
+allowlist va a fallar con "password required" → el wrapper falla con
+exit 1 → el job de GH Actions falla ruidosamente. Esa es la red de
+seguridad primaria: aunque alguien comprometido edite el wrapper en el
+server (que NO debería pasar — siempre se edita acá), no puede escalar
+más allá de `docker compose` sobre esas dos rutas exactas.
+
+### 6.7 Crear el archivo de auditoría
+
+El wrapper hace `tee -a /var/log/ci-deploy.log`. Asegurarse de que
+existe y es escribible:
+
+```bash
+ssh bizshore-server
+sudo touch /var/log/ci-deploy.log
+sudo chown syslog:adm /var/log/ci-deploy.log   # o root:adm; rotar con logrotate cuando crezca
+sudo chmod 664 /var/log/ci-deploy.log
+```
+
+### 6.8 Secrets adicionales en GitHub
+
+A los seis ya listados en §4, sumar estos cinco:
+
+| Secret | Valor |
+| --- | --- |
+| `DEPLOY_OPS_SSH_KEY` | contenido de `~/.ssh/bizshore-home-ops-rsync` (la privada) |
+| `DEPLOY_OPS_SSH_KEY_SHELL` | contenido de `~/.ssh/bizshore-home-ops-shell` (la privada) |
+| `DEPLOY_OPS_SSH_HOST` | `100.127.85.94` (IP Tailscale del server, igual que `DEPLOY_SSH_HOST`) |
+| `DEPLOY_OPS_SSH_USER` | `ci-deploy` |
+| (no nuevos) | `TS_OAUTH_CLIENT_ID` / `TS_OAUTH_SECRET` / `TS_OAUTH_SECRET` se reusan; ya autorizan `tag:ci` a SSH al server desde §3. |
+
+### 6.9 Qué dispara el workflow y qué hace
+
+`.github/workflows/deploy-ops.yml` corre en push a `main` cuando cambian
+archivos bajo `ops/caddy/` o `ops/platform/` (filtrado vía
+`dorny/paths-filter`):
+
+- `ops/caddy/**` cambia solo → rsync + `caddy reload` (sin restart de
+  containers). Rápido, cero downtime.
+- `ops/platform/**` cambia solo → rsync de compose.yaml + `docker compose
+  pull && up -d`. Recrea containers — incluido el propio Caddy y/o
+  cloudflared — por lo que puede afectar in-flight requests unos segundos.
+- Ambos cambian → `platform-up` primero (recrea containers ya redifinidos
+  por `ops/caddy/`) + un `caddy-reload` final como pasada de validación.
+
+El wrapper agrega cada invocación a `/var/log/ci-deploy.log` con
+timestamp, sea exitosa o rechazada. GH Actions también captura stdout
+del job. En cualquier discrepancia, el log del server es la fuente de
+verdad durable.
+
+### 6.10 Rollback
+
+Si un cambio a `ops/caddy/` rompe la config:
+
+```bash
+ssh bizshore-server "cd /data/applications/platform && git -C /data/applications/platform log --oneline ops/caddy/"
+# identificar el commit previo bueno; el directorio es un clone del repo
+ssh bizshore-server "git checkout HEAD~1 -- ops/caddy/"
+# o desde acá, re-sync con el commit anterior:
+git checkout HEAD~1 -- ops/caddy/
+./ops/caddy/sync.sh   # o push al main y dejar que el workflow corra
+```
+
+> Importante: `/data/applications/platform/` no es hoy un worktree de
+> git en el server — es solo un directorio sincronizado por rsync.
+> Para hacer `git checkout` desde el server como en el primer ejemplo,
+> hay que inicializarlo como worktree: `git clone --bare . /var/repos/bizshore-home.git && git --git-dir=/var/repos/bizshore-home.git --work-tree=/data/applications/platform checkout -f main`. **No hacerlo todavía** — los rollbacks hoy son desde la máquina local (segundo bloque de comandos) y vuelven a deployarse por CI.

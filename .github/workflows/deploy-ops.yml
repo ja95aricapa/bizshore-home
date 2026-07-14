@@ -1,0 +1,162 @@
+name: Deploy ops/
+
+# Deploys changes under ops/ to the bizshore-01 server via Tailscale.
+# Triggers only when ops/ changes (dorny/paths-filter), and only on push
+# to main. PRs do NOT trigger deploys — only merges do.
+#
+# Two distinct SSH keys, both restricted server-side:
+#   DEPLOY_OPS_SSH_KEY         rrsync for ops/caddy/ + ops/platform/ —
+#                              server restricts to
+#                              /data/applications/platform/
+#   DEPLOY_OPS_SSH_KEY_SHELL   command="/usr/local/bin/ci-deploy-shell"
+#                              — replaces login shell with the wrapper
+#                              allowlist (caddy-reload, platform-up,
+#                              autotrade-up, rsync-ok).
+#
+# We intentionally do NOT mix rsync and the wrapper into a single key —
+# rrsync and command="..." are mutually exclusive patterns in
+# authorized_keys: rrsync expects a normal shell to run rsync on the
+# remote; command="..." replaces the shell entirely.
+#
+# Decides caddy-reload vs platform-up based on which subdir changed:
+#   ops/caddy/**       -> rsync + caddy reload (no restart, fast).
+#   ops/platform/**    -> rsync + docker compose pull + up -d (restarts
+#                         caddy + cloudflared, can briefly drop in-flight
+#                         requests).
+#   Both changed       -> platform-up first (recreate containers that
+#                         are also redefined by ops/caddy/), then
+#                         caddy-reload as a final config-validate pass.
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      caddy: ${{ steps.filter.outputs.caddy }}
+      platform: ${{ steps.filter.outputs.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            caddy:
+              - 'ops/caddy/**'
+            platform:
+              - 'ops/platform/**'
+
+  deploy:
+    needs: changes
+    if: needs.changes.outputs.caddy == 'true' || needs.changes.outputs.platform == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Join tailnet
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      # Pull both keys into the SSH agent so the same step can use rsync
+      # (DEPLOY_OPS_SSH_KEY) and ssh-as-wrapper (DEPLOY_OPS_SSH_KEY_SHELL).
+      # webfactory/ssh-agent accepts a single multiline key via newlines
+      # but NOT multiple separate secrets cleanly — we add the shell key
+      # to ~/.ssh manually and let ssh-agent handle the rrsync one.
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: |
+            ${{ secrets.DEPLOY_OPS_SSH_KEY }}
+
+      - name: Install shell key
+        # The shell key cannot live in ssh-agent via the webfactory action
+        # above (it has the force-command, not a normal shell) — ssh-agent
+        # would ignore it. We write it to disk and add a Host stanza that
+        # pins it to deploy-ops-shell@<host> while leaving the rrsync key
+        # (the one in ssh-agent) untouched.
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_OPS_SSH_KEY_SHELL" > ~/.ssh/id_ed25519_ops_shell
+          chmod 600 ~/.ssh/id_ed25519_ops_shell
+          cat >> ~/.ssh/config <<EOF
+          Host ${DEPLOY_OPS_SSH_HOST}-shell
+            HostName ${DEPLOY_OPS_SSH_HOST}
+            User ${DEPLOY_OPS_SSH_USER}
+            IdentityFile ~/.ssh/id_ed25519_ops_shell
+            IdentitiesOnly yes
+            StrictHostKeyChecking accept-new
+          EOF
+        env:
+          DEPLOY_OPS_SSH_KEY_SHELL: ${{ secrets.DEPLOY_OPS_SSH_KEY_SHELL }}
+          DEPLOY_OPS_SSH_HOST: ${{ secrets.DEPLOY_OPS_SSH_HOST }}
+          DEPLOY_OPS_SSH_USER: ${{ secrets.DEPLOY_OPS_SSH_USER }}
+
+      - name: Probe SSH reachability
+        # Confirms keys + wrapper + sudo resolve before we try to deploy.
+        # The wrapper's rsync-ok subcommand is a no-op smoke test.
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new \
+            ${DEPLOY_OPS_SSH_USER}@${DEPLOY_OPS_SSH_HOST} rsync-ok
+        env:
+          DEPLOY_OPS_SSH_HOST: ${{ secrets.DEPLOY_OPS_SSH_HOST }}
+          DEPLOY_OPS_SSH_USER: ${{ secrets.DEPLOY_OPS_SSH_USER }}
+
+      - name: Sync ops/caddy/
+        if: needs.changes.outputs.caddy == 'true'
+        run: |
+          ssh-keyscan "${DEPLOY_OPS_SSH_HOST}" >> ~/.ssh/known_hosts
+          rsync -az --delete \
+            ops/caddy/ "${DEPLOY_OPS_SSH_USER}@${DEPLOY_OPS_SSH_HOST}:/data/applications/platform/caddy/"
+        env:
+          DEPLOY_OPS_SSH_HOST: ${{ secrets.DEPLOY_OPS_SSH_HOST }}
+          DEPLOY_OPS_SSH_USER: ${{ secrets.DEPLOY_OPS_SSH_USER }}
+
+      - name: Sync ops/platform/
+        if: needs.changes.outputs.platform == 'true'
+        run: |
+          ssh-keyscan "${DEPLOY_OPS_SSH_HOST}" >> ~/.ssh/known_hosts
+          rsync -az --delete \
+            ops/platform/ "${DEPLOY_OPS_SSH_USER}@${DEPLOY_OPS_SSH_HOST}:/data/applications/platform/"
+        env:
+          DEPLOY_OPS_SSH_HOST: ${{ secrets.DEPLOY_OPS_SSH_HOST }}
+          DEPLOY_OPS_SSH_USER: ${{ secrets.DEPLOY_OPS_SSH_USER }}
+
+      - name: platform-up
+        if: needs.changes.outputs.platform == 'true'
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new \
+            ${DEPLOY_OPS_SSH_USER}@${DEPLOY_OPS_SSH_HOST}-shell \
+            platform-up
+        env:
+          DEPLOY_OPS_SSH_HOST: ${{ secrets.DEPLOY_OPS_SSH_HOST }}
+          DEPLOY_OPS_SSH_USER: ${{ secrets.DEPLOY_OPS_SSH_USER }}
+
+      - name: caddy-reload
+        if: needs.changes.outputs.caddy == 'true' && needs.changes.outputs.platform != 'true'
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new \
+            ${DEPLOY_OPS_SSH_USER}@${DEPLOY_OPS_SSH_HOST}-shell \
+            caddy-reload
+        env:
+          DEPLOY_OPS_SSH_HOST: ${{ secrets.DEPLOY_OPS_SSH_HOST }}
+          DEPLOY_OPS_SSH_USER: ${{ secrets.DEPLOY_OPS_SSH_USER }}
+
+      - name: caddy-reload (final validate after platform-up)
+        # When both ops/caddy/ and ops/platform/ changed, platform-up
+        # already recreated the containers (including caddy) which has
+        # loaded the new Caddyfile. This step is a deliberate no-cost
+        # validation pass through the wrapper — confirms the wrapper
+        # allowlist + sudo wiring is still healthy post-deploy.
+        if: needs.changes.outputs.caddy == 'true' && needs.changes.outputs.platform == 'true'
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new \
+            ${DEPLOY_OPS_SSH_USER}@${DEPLOY_OPS_SSH_HOST}-shell \
+            caddy-reload
+        env:
+          DEPLOY_OPS_SSH_HOST: ${{ secrets.DEPLOY_OPS_SSH_HOST }}
+          DEPLOY_OPS_SSH_USER: ${{ secrets.DEPLOY_OPS_SSH_USER }}
