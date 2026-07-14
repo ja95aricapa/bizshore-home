@@ -38,7 +38,8 @@ ops/caddy/
   | --- | --- | --- | --- |
   | `www.bizshore.net` (apex `bizshore.net`) | Sitio corporativo | `bizshore-home` (este repo) | Activo |
   | `landing.bizshore.net` | Landing de campana `/landing/diagnostico-software` | `bizshore-home` (mismo SPA) | Pendiente — crear vhost explicito cuando se active el subdominio |
-  | `trade.bizshore.net` (futuro) | Plataforma autotrade | `autotrade_bot_app` | Pendiente — requiere mover el stack al mismo host o a una VM accesible por Tailscale |
+  | `trade.bizshore.net` | Plataforma autotrade (frontend + `/api/*` + webhook Telegram) | `autotrade_bot_app` | Patron de red validado (`docker-compose.bizshore01.yml`), reverse-proxy inerte sin secretos/backend — ver `ops/platform/README.md` |
+  | `trade-api.bizshore.net` | Plataforma autotrade, acceso directo a la API | `autotrade_bot_app` | Idem. Nota: usa `trade-api` (un nivel bajo `bizshore.net`) y no `api.trade.bizshore.net` — Cloudflare no emite cert gratis para subdominios de 2 niveles sin Advanced Certificate Manager |
 
   Nota: el SPA actual de `bizshore-home` ya responde la ruta
   `/landing/diagnostico-software` (ver `src/pages/LandingPage.jsx`), asi
