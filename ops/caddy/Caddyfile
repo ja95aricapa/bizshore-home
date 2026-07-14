@@ -17,11 +17,11 @@
 # el vhost explicito apps/_legacy-main.caddy (marcado como transitorio
 # hasta definir que dominio debe absorber ese contenido).
 {
-    # Email de contacto para ACME/Let's Encrypt (certificados por vhost).
-    email contacto@bizshore.net
-    # Admin via docker socket ya viene configurado por compose; no exponer.
-    # Auto-HTTPS queda activado por defecto: Caddy solicita certs de
-    # Let's Encrypt para cada host que aparezca en un site block.
+	# Email de contacto para ACME/Let's Encrypt (certificados por vhost).
+	email contacto@bizshore.net
+	# Admin via docker socket ya viene configurado por compose; no exponer.
+	# Auto-HTTPS queda activado por defecto: Caddy solicita certs de
+	# Let's Encrypt para cada host que aparezca en un site block.
 }
 
 # Import explicito por aplicacion. Agregar una linea nueva por cada app
