@@ -97,11 +97,14 @@ jobs:
           DEPLOY_OPS_SSH_USER: ${{ secrets.DEPLOY_OPS_SSH_USER }}
 
       - name: Probe SSH reachability
-        # Confirms keys + wrapper + sudo resolve before we try to deploy.
-        # The wrapper's rsync-ok subcommand is a no-op smoke test.
+        # Confirms the wrapper + sudo resolve before we try to deploy. Must
+        # target the "-shell" Host alias (id_ed25519_ops_shell) — the
+        # rrsync key in ssh-agent forces `rrsync`, which rejects any
+        # SSH_ORIGINAL_COMMAND that isn't a real rsync invocation, so
+        # `rsync-ok` sent to the bare host would hit the wrong key.
         run: |
           ssh -o StrictHostKeyChecking=accept-new \
-            ${DEPLOY_OPS_SSH_USER}@${DEPLOY_OPS_SSH_HOST} rsync-ok
+            ${DEPLOY_OPS_SSH_USER}@${DEPLOY_OPS_SSH_HOST}-shell rsync-ok
         env:
           DEPLOY_OPS_SSH_HOST: ${{ secrets.DEPLOY_OPS_SSH_HOST }}
           DEPLOY_OPS_SSH_USER: ${{ secrets.DEPLOY_OPS_SSH_USER }}
