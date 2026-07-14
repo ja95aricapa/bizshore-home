@@ -58,6 +58,12 @@ en este repo bajo `ops/caddy/`. Ver `ops/caddy/README.md` para la
 estructura completa, la convención de subdominios y los pasos para
 agregar un nuevo vhost.
 
+> El tráfico llega al server vía **Cloudflare Tunnel**, no por IP
+> pública directa — agregar un vhost nuevo en Caddy no alcanza, también
+> hay que publicar el hostname en el dashboard de Cloudflare (Zero
+> Trust → Tunnels). Ver la sección "Arquitectura de red: Cloudflare
+> Tunnel" en `ops/caddy/README.md` antes de dar de alta un subdominio.
+
 Para una primera instalación, sincronizar todo el directorio y recargar
 Caddy. El helper `ops/caddy/sync.sh` automatiza el flujo (rsync +
 `caddy validate` + `caddy reload`):

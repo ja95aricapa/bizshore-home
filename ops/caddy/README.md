@@ -41,12 +41,56 @@ ops/caddy/
   `bizshore-home` con un `rewrite` o un alias, o directamente un CNAME a
   `www.bizshore.net` en DNS.
 
-## DNS
+## Arquitectura de red: Cloudflare Tunnel
 
-Hasta confirmar el wildcard `*.bizshore.net` en Cloudflare, cada
-subdominio nuevo requiere crear un registro DNS explicito (CNAME al apex
-o A a la IP publica del server). No activar vhosts sin DNS resuelto
-porque Caddy fallara al solicitar el certificado ACME.
+El trafico **no** llega al server por IP publica directa. `bizshore-01`
+corre un container `cloudflared` (Cloudflare Tunnel, ver servicio
+`cloudflared` en `compose.yaml`) que expone Caddy al mundo sin abrir
+puertos. Esto cambia dos cosas respecto a un setup con Caddy expuesto
+directo:
+
+- **DNS**: lo administra el tunel automaticamente (CNAME al tunel, no un
+  registro A a la IP publica). No hace falta crear registros DNS a mano
+  para un hostname nuevo — se crean solos al agregar la ruta en el paso
+  siguiente.
+- **Origen del tunel**: cada hostname publicado necesita una entrada en
+  el dashboard de Cloudflare, **Zero Trust → Networks → Tunnels →
+  `bizshore-home-server` → Published application routes**. Cada entrada
+  define a que `Service` interno del container `caddy` se reenvia el
+  trafico.
+
+### Bug resuelto: loop de redirects + 502
+
+Las rutas publicadas apuntaban a `http://caddy:80`. Caddy ve esa
+peticion HTTP y, como tiene `auto_https` activado, responde con un
+redirect 308 a HTTPS — pero ese redirect vuelve a pasar por el mismo
+tunel HTTP, generando un **loop infinito** (`https://www.bizshore.net/`
+redirigiendo a si mismo). Cambiar el modo SSL/TLS del dashboard
+(Flexible/Full/Full strict) **no afecta esto**, porque esa configuracion
+es para trafico DNS-proxied clasico, no para el tunel.
+
+El fix correcto, aplicado en cada ruta publicada:
+
+1. **Service** → `https://caddy:443` (no `http://caddy:80`).
+2. Eso solo no alcanza: sin indicar el hostname, Caddy no sabe que
+   certificado/vhost presentar en el handshake TLS y el tunel responde
+   `502 Bad Gateway`. Hay que abrir **Origin request and connection
+   settings → TLS → Origin Server Name** y poner ahi el mismo hostname
+   de la ruta (ej. `bizshore.net` en la ruta de `bizshore.net`,
+   `www.bizshore.net` en la de `www.bizshore.net`). Dejar **No TLS
+   Verify** en `Off` — Caddy ya tiene un certificado real de Let's
+   Encrypt, no hace falta saltarse la verificacion.
+
+Con `Service = https://caddy:443` + `Origin Server Name` correcto,
+Caddy recibe el SNI esperado, sirve el vhost correcto con su
+certificado, y el tunel valida ese certificado sin problema.
+
+### SSL/TLS mode en el dashboard
+
+Con certificados reales en el origen, dejar **Full (strict)** en
+`SSL/TLS → Overview`. No usar `Flexible` (fuerza HTTP al origen,
+mismo bug del loop si algun dia el trafico deja de pasar por el
+tunel) ni `Automatic` (puede degradar a Flexible sin avisar).
 
 ## Agregar una nueva app
 
@@ -59,8 +103,13 @@ porque Caddy fallara al solicitar el certificado ACME.
      caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
    ```
 5. Agregar `import apps/<nombre-app>.caddy` en el `Caddyfile` raiz.
-6. Asegurar que el DNS del subdominio resuelve a la IP publica del
-   server (o al CNAME del apex).
+6. Publicar el hostname en el tunel de Cloudflare (Zero Trust →
+   Networks → Tunnels → `bizshore-home-server` → Published application
+   routes → Add a published application route):
+   - **Service**: `https://caddy:443` (siempre, sin importar el puerto
+     que use la app internamente — Caddy es el unico que escucha ahi).
+   - **Origin Server Name**: el mismo hostname de la ruta.
+   - El DNS se crea automaticamente al guardar.
 7. Sincronizar al server y recargar Caddy. El helper `ops/caddy/sync.sh`
    automatiza el rsync + `caddy validate` + `caddy reload`:
    ```bash
