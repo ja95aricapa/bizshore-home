@@ -165,19 +165,29 @@ versionarlo).
    no hay VPS activo**. La ruta con `VPS_SSH_PRIVATE_KEY` / `VPS_SSH_USER`
    como `root` en un secret de GitHub era el eslabón más débil de las
    tres; con `infra/modules/cloudflare/` sin proveedor real, endurecerla
-   gastaría tiempo en infraestructura muerta. Cleanup recomendado (no
-   aplicado todavía):
-   - Mover `autotrade_bot_app/infra/modules/cloudflare/` a
-     `infra/modules/cloudflare.disabled/` (o marcarlo con `DISABLED`
-     visible arriba de cada `*.tf`).
-   - Cambiar el `default = "cloudflare"` en `infra/variables.tf` a
-     `default = "aws"` — un `terraform apply` sin overrides ya no intenta
-     crear el VPS.
-   - Borrar el job `Deploy to VPS via SSH (Cloudflare Path)` y los inputs
-     `CLOUDFLARE_API_TOKEN` / `VPS_SSH_PRIVATE_KEY` / `VPS_SSH_USER` en
-     `.github/workflows/reusable-deploy.yml`.
+   gastaría tiempo en infraestructura muerta.
+
+   Cleanup aplicado en `autotrade_bot_app` commit `1a105a3`
+   (`chore(deploy): retire dead Cloudflare/VPS code path`,
+   branch `feature/apply_audit_1`):
+   - `infra/modules/cloudflare/` → `infra/modules/cloudflare.disabled/`
+     (con `RETIRED.md` explicando qué había y por qué se cerró el 2026-07-14).
+   - `default = "cloudflare"` → `default = "aws"` en `infra/routing.tf`
+     (la validación sigue aceptando `"cloudflare"` para no cerrar la
+     puerta a una resurrección futura).
+   - Removidos los inputs `CLOUDFLARE_API_TOKEN` / `VPS_SSH_PRIVATE_KEY`
+     / `VPS_SSH_USER` y los steps `Configure Cloudflare Credentials`,
+     `Deploy to VPS via SSH (Cloudflare Path)` y
+     `Smoke test (Cloudflare) — /health endpoint` de
+     `.github/workflows/reusable-deploy.yml` (98 líneas borradas, 12 añadidas).
+   - `terraform fmt -check` y `terraform validate` pasan limpios contra
+     el módulo renombrado y el nuevo source path.
+
+   Pendiente manual (no automatizable desde el sandbox):
    - Rotar los GitHub Secrets `CLOUDFLARE_API_TOKEN`, `VPS_SSH_PRIVATE_KEY`,
-     `VPS_SSH_USER` del repo.
+     `VPS_SSH_USER` del repo `autotrade_bot_app` desde
+     Settings → Secrets and variables → Actions. Ya no se referencian en
+     ningún workflow pero siguen existiendo en la UI hasta que se borren.
 
    AWS (vía SSM, sin SSH) es la ruta que el bot usa productivamente;
    `bizshore-01` (manual, red compartida) es la nueva. La de VPS no hace
