@@ -23,7 +23,7 @@ sobre esa carpeta (usa `rrsync`, incluido con el paquete `rsync`):
 ```bash
 ssh bizshore-server
 find / -name rrsync 2>/dev/null   # confirmar dónde quedó tras instalar rsync
-echo 'command="/usr/bin/rrsync -W /data/static-sites/bizshore-home",no-agent-forwarding,no-X11-forwarding,no-pty ssh-ed25519 AAAA...(pública aquí)... github-actions-bizshore-home' >> ~/.ssh/authorized_keys
+echo 'command="/usr/bin/rrsync -wo /data/static-sites/bizshore-home",no-agent-forwarding,no-X11-forwarding,no-pty ssh-ed25519 AAAA...(pública aquí)... github-actions-bizshore-home' >> ~/.ssh/authorized_keys
 ```
 
 Esto evita que la llave de CI pueda hacer nada más que escribir en esa carpeta puntual.
@@ -115,9 +115,13 @@ que requieren restricciones distintas, y `authorized_keys` no admite
 mezclar patrones:
 
 - **rsync de archivos** → llave restringida vía `rrsync` (la herramienta
-  incluye en el paquete `rsync`). El servidor corre `rrsync -W <path>`
+  incluye en el paquete `rsync`). El servidor corre `rrsync -wo <path>`
   como shell forzado para esa llave: puede escribir en un único path y
   nada más. Patrón ya usado por la llave de SPA (`DEPLOY_SSH_KEY`).
+  Nota: la reescritura en Python de `rrsync` (rsync 3.2.x+) usa `-wo`
+  (write-only) en minúscula, no `-W` — confirmar con `rrsync --help`
+  en el server antes de copiar este patrón, la sintaxis cambia entre
+  versiones.
 - **cargar la nueva config** → llave restringida vía `command="..."` que
   apunta al wrapper `/usr/local/bin/ci-deploy-shell` (versionado en este
   repo bajo `ops/ci-deploy-shell.sh`). El wrapper valida el subcomando
@@ -174,7 +178,7 @@ Reemplazar las públicas que correspondan y los paths reales:
 ```bash
 ssh bizshore-server
 sudo tee -a /home/ci-deploy/.ssh/authorized_keys > /dev/null <<EOF
-command="/usr/bin/rrsync -W /data/applications/platform",no-agent-forwarding,no-X11-forwarding,no-pty $(cat ~/.ssh/bizshore-home-ops-rsync.pub)
+command="/usr/bin/rrsync -wo /data/applications/platform",no-agent-forwarding,no-X11-forwarding,no-pty $(cat ~/.ssh/bizshore-home-ops-rsync.pub)
 command="/usr/local/bin/ci-deploy-shell",no-agent-forwarding,no-X11-forwarding,no-pty $(cat ~/.ssh/bizshore-home-ops-shell.pub)
 EOF
 sudo chown -R ci-deploy:ci-deploy /home/ci-deploy/.ssh
