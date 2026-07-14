@@ -4,6 +4,11 @@ Configuracion de Caddy versionada en este repo. La fuente de verdad
 operativa vive en `/data/applications/platform/caddy/Caddyfile` dentro del
 servidor; este directorio es la "receta" que se sincroniza a el.
 
+> Este Caddy corre dentro del stack `ops/platform/` (junto al `cloudflared`
+> que sostiene el Cloudflare Tunnel). Ver `ops/platform/README.md` para la
+> receta generica de como publicar **cualquier app nueva** en este host —
+> no solo `bizshore-home`.
+
 ## Estructura
 
 ```

@@ -1,0 +1,46 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: edge-caddy
+    restart: unless-stopped
+
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/apps:/etc/caddy/apps:ro
+      - /data/static-sites:/srv/static:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+    networks:
+      - edge
+
+    security_opt:
+      - no-new-privileges:true
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-tunnel
+    restart: unless-stopped
+
+    command: tunnel --no-autoupdate --protocol http2 run --token ${CLOUDFLARED_TOKEN}
+
+    depends_on:
+      - caddy
+
+    networks:
+      - edge
+
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  edge:
+
+volumes:
+  caddy_data:
+  caddy_config:
