@@ -80,16 +80,16 @@ case "${1:-}" in
     # alongside bizshore01.env. The deploy workflow's secrets must NOT
     # include either file — they live on the server only.
     sudo "${DOCKER}" compose \
-      --env-file "${AUTOTRADE_DIR}/.env.production" \
-      --env-file "${AUTOTRADE_DIR}/bizshore01.env" \
       -f "${AUTOTRADE_DIR}/docker-compose.yml" \
       -f "${AUTOTRADE_DIR}/docker-compose.bizshore01.yml" \
+      --env-file "${AUTOTRADE_DIR}/.env.production" \
+      --env-file "${AUTOTRADE_DIR}/bizshore01.env" \
       pull
     sudo "${DOCKER}" compose \
-      --env-file "${AUTOTRADE_DIR}/.env.production" \
-      --env-file "${AUTOTRADE_DIR}/bizshore01.env" \
       -f "${AUTOTRADE_DIR}/docker-compose.yml" \
       -f "${AUTOTRADE_DIR}/docker-compose.bizshore01.yml" \
+      --env-file "${AUTOTRADE_DIR}/.env.production" \
+      --env-file "${AUTOTRADE_DIR}/bizshore01.env" \
       up -d
     log "subcommand=autotrade-up OK"
     ;;
@@ -100,10 +100,10 @@ case "${1:-}" in
     # rollback when a new release is unbootable and the operator wants
     # to bring the bot completely down before manual recovery.
     sudo "${DOCKER}" compose \
-      --env-file "${AUTOTRADE_DIR}/.env.production" \
-      --env-file "${AUTOTRADE_DIR}/bizshore01.env" \
       -f "${AUTOTRADE_DIR}/docker-compose.yml" \
       -f "${AUTOTRADE_DIR}/docker-compose.bizshore01.yml" \
+      --env-file "${AUTOTRADE_DIR}/.env.production" \
+      --env-file "${AUTOTRADE_DIR}/bizshore01.env" \
       down
     log "subcommand=autotrade-down OK"
     ;;
