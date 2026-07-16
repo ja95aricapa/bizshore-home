@@ -82,12 +82,14 @@ case "${1:-}" in
     sudo "${DOCKER}" compose \
       -f "${AUTOTRADE_DIR}/docker-compose.yml" \
       -f "${AUTOTRADE_DIR}/docker-compose.bizshore01.yml" \
+      --profile auth \
       --env-file "${AUTOTRADE_DIR}/.env.production" \
       --env-file "${AUTOTRADE_DIR}/bizshore01.env" \
       pull
     sudo "${DOCKER}" compose \
       -f "${AUTOTRADE_DIR}/docker-compose.yml" \
       -f "${AUTOTRADE_DIR}/docker-compose.bizshore01.yml" \
+      --profile auth \
       --env-file "${AUTOTRADE_DIR}/.env.production" \
       --env-file "${AUTOTRADE_DIR}/bizshore01.env" \
       up -d
