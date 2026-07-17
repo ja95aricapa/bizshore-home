@@ -77,8 +77,12 @@ Push a main (backend/**, frontend/**, o compose)
     ghcr.io/ja95aricapa/autotrade-{backend,frontend}
     tags: "bizshore01" (móvil) + "<sha>" (inmutable, rollback)
   → GitHub Actions job deploy: Tailscale efímero (tag:ci) →
-    ssh ci-deploy@bizshore-01 autotrade-up →
+    genera bizshore01.env pineado al SHA (o al tag móvil si el run no
+    reconstruyó nada) → sincroniza compose+env vía `ssh ... app-sync
+    autotrade` (tar.gz por stdin, validado server-side) →
+    `ssh ci-deploy@bizshore-01 app-up autotrade` →
     wrapper ci-deploy-shell → sudo docker compose ... pull && up -d
+    (--profile auth --profile observability)
   → reverse-proxy (Caddy interno, auto_https off) se une a la red
     compartida platform_edge
   → Cloudflare Tunnel rutea trade.bizshore.net y trade-api.bizshore.net
@@ -86,13 +90,12 @@ Push a main (backend/**, frontend/**, o compose)
     el ALB de AWS)
 ```
 
-**Estado real (2026-07-15)**: el pipeline está completo y validado
-end-to-end (`ssh` + wrapper + sudoers + `docker compose pull` contra
-GHCR con auth real probada). Lo único pendiente es 100% deliberado y
-manual: `.env.production` con secretos productivos reales en el server
-(nunca se sube a GH) y el merge del código de negocio a `main`. A partir
-de ese merge, cada push despliega solo. Detalle completo, incluido el
-setup one-time del server: `autotrade_bot_app/ops/DEPLOY-BIZSHORE01.md`.
+**Estado real (2026-07-17)**: en producción, stack completo (auth, DB,
+workers, observability). Cada push a `main` sincroniza y redeploya solo
+— sin ningún paso manual (el sync de compose/env que antes era manual se
+resolvió esta sesión, ver "Pendientes de seguridad" → "✅ Resueltos").
+Rollback: `workflow_dispatch` con `image_tag` a cualquier SHA ya
+publicado en GHCR. Detalle completo: `autotrade_bot_app/ops/DEPLOY-BIZSHORE01.md`.
 
 Fuente de verdad del lado server (usuario `ci-deploy`, wrapper, sudoers,
 audit log — compartido con `bizshore-home`): `ops/DEPLOY.md` §6.
@@ -129,8 +132,12 @@ en GitHub Settings — ya no los referencia ningún workflow.
 │   ├── env
 │   ├── password
 │   └── rclone.conf
-├── sudoers.d/ci-deploy           # versionado en ops/DEPLOY.md §6.6, aplicado a mano
-└── fail2ban/jail.local           # versionado en ops/host/fail2ban/, aplicado a mano
+├── sudoers.d/ci-deploy           # versionado en ops/DEPLOY.md §6.6, aplicado a mano — UNA línea por proyecto
+├── fail2ban/jail.local           # versionado en ops/host/fail2ban/, aplicado a mano
+└── ci-deploy/projects/           # registry de proyectos, versionado en ops/projects/*.conf, aplicado a mano
+    ├── platform.conf
+    ├── autotrade.conf
+    └── <nuevo-proyecto>.conf     # uno por proyecto — ver "Onboarding" abajo
 /var/log/ci-deploy.log            # audit log de cada invocación del wrapper
 /home/ci-deploy/.ssh/authorized_keys   # 2 llaves restringidas por proyecto (rrsync + shell wrapper)
 ```
@@ -155,8 +162,9 @@ además diverge de lo que dice el repo.
 | `~/.ssh/bizshore-server-hp-01` (Acer) | SSH interactivo, sin restricción, sudo completo | Solo sesiones manuales del Acer. **Nunca en CI.** |
 | `~/.ssh/bizshore-home-deploy` | `command="rrsync -wo /data/static-sites/bizshore-home"` | `bizshore-home/.github/workflows/deploy.yml`, secret `DEPLOY_SSH_KEY` |
 | `~/.ssh/bizshore-home-ops-rsync` | `command="rrsync -wo /data/applications/platform"` | `bizshore-home/.github/workflows/deploy-ops.yml`, secret `DEPLOY_OPS_SSH_KEY` |
-| `~/.ssh/bizshore-home-ops-shell` | `command="/usr/local/bin/ci-deploy-shell"` (allowlist: `caddy-reload`, `platform-up`, `autotrade-up`, `autotrade-down`, `rsync-ok`) | `bizshore-home/.github/workflows/deploy-ops.yml`, secret `DEPLOY_OPS_SSH_KEY_SHELL` |
+| `~/.ssh/bizshore-home-ops-shell` | `command="/usr/local/bin/ci-deploy-shell"` (allowlist: `caddy-reload`, `platform-up`, `app-up`/`app-down`/`app-sync <proyecto>`, `autotrade-up`/`-down`/`-sync` alias, `rsync-ok`) | `bizshore-home/.github/workflows/deploy-ops.yml`, secret `DEPLOY_OPS_SSH_KEY_SHELL` |
 | `~/.ssh/bizshore01-deploy-shell` | `command="/usr/local/bin/ci-deploy-shell"` (mismo wrapper, mismo allowlist) | `autotrade_bot_app/.github/workflows/deploy-bizshore01.yml`, secret `BIZSHORE01_DEPLOY_SSH_KEY_SHELL` |
+| *(una por proyecto nuevo)* | Mismo wrapper — el aislamiento entre proyectos viene del registry (`/etc/ci-deploy/projects/<nombre>.conf`) + una línea de sudoers escopeada a ese proyecto, NO de una llave o usuario Unix distinto | Ver "Onboarding de un proyecto nuevo" abajo |
 
 Todas las llaves de CI se unen al tailnet solo durante el job
 (`tailscale/github-action` con OAuth client `tag:ci`) — el puerto 22 de
@@ -201,12 +209,89 @@ viven en `ops/host/` (fail2ban, restic) y `ops/platform/compose.yaml`
 | Pieza | Qué hace | Estado |
 | --- | --- | --- |
 | **fail2ban** | Rate-limit de intentos SSH fallidos sobre el puerto 22 público (la llave interactiva, no las de CI que solo llegan por Tailscale) | Activo, validado |
-| **restic** | Backup diario cifrado (`03:15`, `restic-backup.timer`) de `/data/static-sites`, `/data/applications/platform/caddy`, `/data/applications/autotrade` (sin `.env*`) hacia Google Drive vía `rclone:` | Activo, backup + check + restore de prueba verificados |
+| **restic** | Backup diario cifrado (`03:15`, `restic-backup.timer`) de `/data/static-sites`, `/data/applications/platform/caddy`, `/data/applications/autotrade` (código + `.env.production` — SÍ se backupea, cifrado client-side antes de salir del host, es preferible a perder el único secreto en un fallo de disco) + el volumen Docker `autotrade_backups` (resuelto dinámicamente, contiene los `pg_dump` de la DB real) hacia Google Drive vía `rclone:` | Activo, backup + check + restore de prueba verificados |
 | **Uptime Kuma** | Monitorea 4 hostnames (`www.bizshore.net`, `bizshore.net`, `trade.bizshore.net`, `trade-api.bizshore.net`) con alertas a Telegram | Activo, 4 monitors + notificaciones configuradas |
 
 Detalle de cada uno: `ops/host/fail2ban/README.md`,
 `ops/host/restic/README.md`, `ops/platform/README.md` →
 "Observabilidad: Uptime Kuma".
+
+## Onboarding de un proyecto nuevo ("Fargate-lite", sin Kubernetes)
+
+`bizshore-01` no corre Kubernetes a propósito — el objetivo es algo
+parecido a un servicio autoadministrado de nube (Fargate/App Runner):
+cada proyecto trae su propio `docker-compose.yml`, el host se encarga de
+red compartida, TLS, deploy, backup y monitoreo. Antes de esta ronda de
+auditoría, ese patrón existía pero solo funcionaba para los dos proyectos
+ya wireados a mano (`autotrade`, `platform`); onboardear un tercero
+significaba editar `ci-deploy-shell.sh` directamente. Ya no:
+
+```bash
+# En bizshore-home:
+ops/new-project.sh <nombre> proxy <dominio> <upstream:puerto>
+# Genera ops/projects/<nombre>.conf + ops/caddy/apps/<nombre>.caddy,
+# imprime los 9 pasos manuales restantes (sudoers, llave SSH, ruta del
+# Tunnel, Kuma, workflow de GitHub Actions basado en
+# ops/templates/deploy-workflow.yml.template).
+```
+
+Ningún paso manual impreso por el script requiere editar código de
+`ci-deploy-shell.sh` — el wrapper es genérico (`app-up`/`app-down`/
+`app-sync <proyecto>`) y lee la config de cada proyecto desde su propio
+archivo. El aislamiento entre proyectos viene de: (a) la línea de
+sudoers escopeada al path exacto del compose de ESE proyecto — un
+`app-up widgetco` no puede tocar los containers de `autotrade`, aunque
+comparta el mismo usuario `ci-deploy` y el mismo wrapper; (b) una llave
+SSH dedicada por proyecto, así que una llave filtrada compromete un solo
+proyecto, no todos.
+
+## Presupuesto de recursos del host
+
+`bizshore-01`: 4 vCPU, 8.7GiB RAM, 393GB disco (`/data`). Medido en vivo
+(2026-07-17):
+
+| Recurso | Total | En uso hoy | Disponible |
+| --- | --- | --- | --- |
+| RAM | 8.7GiB | ~2.5GiB (autotrade completo + platform) | ~6.2GiB |
+| Disco `/data` | 393GB | 2.1GB (1%) | 371GB |
+| vCPU | 4 | sin saturación observada | — |
+| Imágenes Docker | — | 41 (7.1GB), 960MB reclamable | — |
+
+Margen real para 1-2 proyectos de tamaño similar a `autotrade` sin tocar
+hardware. Antes de onboardear un proyecto grande (varios workers, su
+propia DB, stack de observabilidad propio), correr
+`ssh bizshore-server 'free -h && docker stats --no-stream'` para
+confirmar que sigue habiendo margen — este cuadro es una foto, no se
+actualiza sola.
+
+Limpieza periódica recomendada (no automatizada todavía, correr a mano
+cada tanto o agregar a un cron/systemd-timer futuro):
+```bash
+ssh bizshore-server 'docker system prune -af --filter "until=720h"'
+# -a incluye imágenes sin tag; --filter until=720h (30 días) evita
+# borrar algo que un rollback reciente todavía podría necesitar.
+```
+
+## Limpieza de cruft (hallazgos de la auditoría de arquitectura, sin aplicar — verificar antes de borrar)
+
+- `/data/applications/autotrade_bot_app/` — directorio legacy (76K, solo
+  un subdirectorio `caddy` residual), dueño `ja95aricapa`, sin `.git`,
+  superado por `/data/applications/autotrade/` (dueño `ci-deploy`, el
+  que realmente usa el wrapper). Candidato a borrar tras confirmar que
+  nada lo referencia:
+  `ssh bizshore-server "ls -la /data/applications/autotrade_bot_app/"`.
+- Redes Docker `autotrade_bot_app_private_net` / `autotrade_bot_app_public_net`
+  — residuo de un nombre de proyecto Compose viejo (antes de que el
+  `docker-compose.bizshore01.yml` actual fijara el nombre a `autotrade`).
+  Verificar que no tengan containers conectados antes de borrar:
+  `ssh bizshore-server "docker network inspect autotrade_bot_app_private_net --format '{{len .Containers}}'"`
+  (si imprime `0`, es seguro `docker network rm`).
+- 3 `.env.production.bak.*` con dueños mezclados (`root` y `ci-deploy`) en
+  `/data/applications/autotrade/` — residuo de ediciones manuales
+  repetidas con `sudo -u ci-deploy nano` vs `sudo nano` directo. Revisar
+  cuál es el más reciente y borrar el resto; considerar que futuras
+  ediciones de `.env.production` siempre pasen por `sudo -u ci-deploy`
+  (nunca `sudo` a secas) para no seguir generando esta deriva de dueños.
 
 ## Reconstruir `bizshore-01` desde cero
 
@@ -339,22 +424,53 @@ al script de `ops/host/restic/backup.sh` antes de que restic corra.
    `deploy-bizshore01.yml` completo, validado end-to-end incluyendo
    auth real contra GHCR. Ya no es manual.
 
+4. **Sync automático de `docker-compose*.yml`/`bizshore01.env` al
+   server**: **resuelto** (auditoría de arquitectura/CI-CD, esta
+   sesión) — `ci-deploy-shell.sh` ganó un subcomando genérico
+   `app-sync <proyecto>` (reemplaza el antiguo `autotrade-sync`
+   hardcodeado; ese nombre se mantiene como alias retrocompatible).
+5. **Retention/GC de imágenes en GHCR**: **resuelto** para
+   `autotrade_bot_app` — `.github/workflows/ghcr-retention.yml` corre
+   semanal, conserva los últimos 20 SHAs + tags móviles. Replicar el
+   mismo workflow (via `ops/templates/deploy-workflow.yml.template`)
+   para cualquier proyecto nuevo que publique a GHCR.
+6. **Backup de la base de datos real de `autotrade_bot_app`**:
+   **resuelto** — se descubrió que `backup-runner` escribe sus
+   `pg_dump` en un volumen Docker nombrado (`autotrade_backups`) que
+   restic nunca cubría (solo `/data/applications/autotrade`, que es el
+   árbol de código, no los volúmenes). `ops/host/restic/backup.sh`
+   ahora resuelve el mountpoint real del volumen vía `docker volume
+   inspect` y lo agrega a `BACKUP_PATHS` dinámicamente. **Antes de este
+   fix, un fallo de disco se llevaba la DB de producción Y sus backups
+   locales al mismo tiempo, sin ninguna copia offsite.**
+7. **Wrapper `ci-deploy-shell` no genérico**: **resuelto** — ver
+   "Onboarding de un proyecto nuevo" más abajo. `ops/new-project.sh`
+   scaffolda el registry entry + vhost Caddy + imprime los pasos
+   manuales restantes (sudoers, llave SSH, ruta del Tunnel, Kuma).
+
 ### ⏳ Pendientes (no resueltos, no bloqueantes)
 
 1. **Backup de `uptime_kuma_data`**: ver nota en el runbook de arriba —
-   hoy fuera del alcance de restic.
-2. **Retention/GC de imágenes en GHCR**: cada push a `main` que toque
-   `app` en `autotrade_bot_app` agrega un tag `<sha>` nuevo sin borrar
-   los previos — crece indefinidamente hasta configurar una política de
-   retención en GitHub Packages.
-3. **rclone client_id compartido**: el remote de Google Drive usa la
+   hoy fuera del alcance de restic (mismo patrón que se usó para
+   `autotrade_backups`, aplicarlo acá también si Kuma alguna vez guarda
+   configuración que no sea trivial de recrear a mano).
+2. **rclone client_id compartido**: el remote de Google Drive usa la
    credencial interna de rclone (compartida globalmente), lo que ya
    gatilló un `403 Quota exceeded` transitorio una vez. No bloqueante
    hoy (el retry automático de rclone lo resolvió), pero si se repite de
    forma persistente, generar un client_id propio en Google Cloud
    Console — ver `ops/host/restic/README.md`.
-4. **Sync automático de `docker-compose*.yml`/`bizshore01.env` al
-   server**: hoy manual (paso 1 de "Setup one-time" en
-   `DEPLOY-BIZSHORE01.md`). Mejora natural si `bizshore-01` se vuelve el
-   deploy primario de autotrade: extender el wrapper con un subcomando
-   `autotrade-sync`, mismo patrón que `rsync-ok`.
+3. **`docker-socket-proxy` compartido con `POST` habilitado**: `backend`
+   (solo necesita lectura para su dashboard operativo) y `worker-sandbox`
+   (necesita `POST` para crear/arrancar containers sandbox) comparten la
+   MISMA instancia del proxy en `autotrade_bot_app`. Separarlas en dos
+   instancias (una read-only, una con `POST` solo para el worker)
+   reduciría el blast-radius si `backend` fuera comprometido — cambio de
+   topología no trivial de validar sin downtime, documentado pero no
+   aplicado.
+4. **Cruft huérfano en el filesystem/Docker del server**: directorio
+   `/data/applications/autotrade_bot_app/` (legacy, sin uso, de un
+   nombre de proyecto compose viejo) y redes Docker
+   `autotrade_bot_app_private_net`/`_public_net` (mismo origen) — ver
+   "Limpieza de cruft" más abajo para los comandos exactos de
+   verificación antes de borrar nada.

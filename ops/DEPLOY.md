@@ -125,8 +125,14 @@ mezclar patrones:
 - **cargar la nueva config** → llave restringida vía `command="..."` que
   apunta al wrapper `/usr/local/bin/ci-deploy-shell` (versionado en este
   repo bajo `ops/ci-deploy-shell.sh`). El wrapper valida el subcomando
-  contra un allowlist (`caddy-reload`, `platform-up`, `autotrade-up`,
-  `rsync-ok`) y rechaza todo lo demás con exit 64.
+  contra un allowlist (`caddy-reload`, `platform-up`, `app-up`/`app-down`/
+  `app-sync <proyecto>`, más los alias retrocompatibles `autotrade-up`/
+  `-down`/`-sync`, `rsync-ok`) y rechaza todo lo demás con exit 64. Los
+  subcomandos genéricos `app-*` leen la config de cada proyecto desde
+  `/etc/ci-deploy/projects/<proyecto>.conf` (ver §6.4a) — onboardear un
+  proyecto nuevo no requiere editar este script, ver
+  `ops/new-project.sh` y "Onboarding de un proyecto nuevo" en
+  `ops/INFRAESTRUCTURA.md`.
 
 Mezclar las dos restricciones en una sola llave no funciona: `rrsync`
 necesita una shell normal para correr rsync remoto; `command="..."`
@@ -207,7 +213,15 @@ allowlist va a fallar con "password required" → el wrapper falla con
 exit 1 → el job de GH Actions falla ruidosamente. Esa es la red de
 seguridad primaria: aunque alguien comprometido edite el wrapper en el
 server (que NO debería pasar — siempre se edita acá), no puede escalar
-más allá de `docker compose` sobre esas dos rutas exactas.
+más allá de `docker compose` sobre esas rutas exactas.
+
+**Onboarding de proyectos nuevos** — cada proyecto nuevo agrega **una
+línea** a este archivo, con el mismo formato, scopeada al path exacto
+del compose de ese proyecto. `ops/new-project.sh` imprime la línea
+exacta que hay que agregar (ver el manual paso 3 al final del scaffold).
+Validar siempre con `sudo visudo -c -f /etc/sudoers.d/ci-deploy` después
+de cada edición — un typo aquí deja a CI sin permisos y el deploy falla
+silenciosamente al primer `docker compose pull`.
 
 ### 6.7 Crear el archivo de auditoría
 

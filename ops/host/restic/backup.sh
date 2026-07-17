@@ -1,27 +1,32 @@
 #!/usr/bin/env bash
-# Backup script for bizshore-01 — NOT wired to run yet. Destination
-# (Backblaze B2 / another host via SFTP / local disk) is undecided as of
-# 2026-07-14; this script is deliberately parameterized via env vars so
-# whichever destination gets chosen later only requires setting
-# RESTIC_REPOSITORY + RESTIC_PASSWORD_FILE (+ B2_ACCOUNT_ID/B2_ACCOUNT_KEY
-# if the destination ends up being B2) in /etc/restic/env, not editing
-# this file. See ops/host/restic/README.md for the three options and
-# exact setup steps for each.
+# Backup script for bizshore-01. Destination: Google Drive via rclone —
+# see ops/host/restic/README.md ("Estado: activo") for the full setup.
+# Parameterized via env vars so a future destination change only touches
+# /etc/restic/env, not this file.
 #
-# What gets backed up: /data (static sites, ops/platform config, and any
-# app-specific volumes bind-mounted under /data) plus named Docker
-# volumes via `docker run --rm -v <volume>:/vol ... tar` snapshots — NOT
-# implemented in this first cut, only bind-mounted /data is covered.
-# Extend the `restic backup` targets below once named-volume backup is
-# needed (e.g. uptime_kuma_data, caddy_data).
+# What gets backed up: /data (static sites, ops/platform config, app
+# source tree + .env.production under /data/applications/autotrade — see
+# "Secrets" note below) PLUS the `autotrade_backups` Docker named volume,
+# resolved dynamically below via `docker volume inspect`. That volume
+# holds autotrade's own `backup-runner` worker's `pg_dump` output — its
+# real host path lives under Docker's relocated data-root
+# (/data/docker/volumes/..., confirmed via `docker info --format
+# '{{.DockerRootDir}}'`), which is NOT one of the plain BACKUP_PATHS
+# entries above and was silently never captured before this fix. Other
+# named volumes (pg_data, redis_data, caddy_data, ...) are deliberately
+# NOT added here: a raw file-level snapshot of a *live* Postgres data
+# directory is not crash-consistent without WAL archiving or stopping
+# the DB first — `backup-runner`'s pg_dump output (a proper logical,
+# transaction-consistent snapshot) is the correct thing to back up, and
+# this script now captures exactly that.
 #
-# Explicitly NOT backed up: anything under /data/applications/*/.env* or
-# .env.production — those are already the single copy of a secret with
-# no upstream source of truth (unlike code, which lives in git), so they
-# arguably SHOULD be backed up too. Decide deliberately once the
-# destination is chosen: an encrypted restic repo protects secrets at
-# rest reasonably well, but this is a call worth making on purpose, not
-# by default inclusion.
+# Secrets: `.env.production` sits inside `/data/applications/autotrade`
+# (a full BACKUP_PATHS entry) with no --exclude flag below, so it IS
+# backed up — restic encrypts client-side before it ever leaves the
+# host, so the destination (Google Drive) never sees it in plaintext.
+# This is the deliberate choice: losing the only copy of every
+# production secret in a disk failure is a worse outcome than an
+# encrypted offsite copy of them.
 
 set -euo pipefail
 
@@ -46,6 +51,20 @@ BACKUP_PATHS=(
 )
 
 log() { printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
+
+# Resolve the autotrade backups volume's real host path dynamically —
+# never hardcode a /data/docker/volumes/... path, it depends on Docker's
+# configured data-root (`docker info --format '{{.DockerRootDir}}'`) and
+# on the Compose project name (volume name prefix), both of which could
+# change. Missing volume is a warning, not a hard failure: a fresh host
+# before autotrade's first deploy shouldn't block the rest of the backup.
+autotrade_backups_mount="$(docker volume inspect autotrade_backups --format '{{.Mountpoint}}' 2>/dev/null || true)"
+if [ -n "${autotrade_backups_mount}" ] && [ -d "${autotrade_backups_mount}" ]; then
+  BACKUP_PATHS+=("${autotrade_backups_mount}")
+  log "including autotrade_backups volume: ${autotrade_backups_mount}"
+else
+  log "WARNING: autotrade_backups Docker volume not found — skipping (DB dumps will NOT be backed up this run)"
+fi
 
 log "restic backup start"
 restic backup "${BACKUP_PATHS[@]}" \
