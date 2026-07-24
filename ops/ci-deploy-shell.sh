@@ -186,7 +186,7 @@ app_sync() {
   log "subcommand=app-sync project=${project} start"
   local tmp_dir
   tmp_dir="$(mktemp -d "${PROJECT_DIR}/.sync-tmp.XXXXXX")"
-  trap 'rm -rf "${tmp_dir}"' EXIT
+  trap 'if [ -n "${tmp_dir:-}" ]; then rm -rf "${tmp_dir}"; fi' EXIT
   local archive="${tmp_dir}/payload.tar.gz"
   cat >"${archive}"
 
@@ -216,9 +216,8 @@ app_sync() {
       chmod 644 "${extract_dir}/${f}"
     fi
     if [ -d "${PROJECT_DIR}/${f}" ]; then
-      stale="${PROJECT_DIR}/${f}.stale.$(date +%Y%m%d-%H%M%S)"
-      mv "${PROJECT_DIR}/${f}" "${stale}"
-      log "app-sync: moved stale directory '${PROJECT_DIR}/${f}' to '${stale}'"
+      log "REFUSED app-sync: destination '${PROJECT_DIR}/${f}' is a stale directory; remove it with sudo before retrying"
+      exit 65
     fi
     mv -f "${extract_dir}/${f}" "${PROJECT_DIR}/${f}"
   done
