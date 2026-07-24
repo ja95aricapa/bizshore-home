@@ -25,6 +25,8 @@
 #                      exact compose paths) keep working unchanged. New
 #                      projects should use the generic `app-*` form.
 #   rsync-ok          No-op smoke test for SSH reachability + sudo wiring.
+#   app-readiness <proj>
+#                      Read the registered project's local readiness endpoint.
 #
 # Onboarding a new project == one new file (see ops/projects/_TEMPLATE.conf)
 # plus one new sudoers line — no edits to this script. See "Onboarding a
@@ -207,7 +209,17 @@ app_sync() {
       log "REFUSED app-sync: ${f} missing after extraction for ${project}"
       exit 65
     }
-    chmod 644 "${extract_dir}/${f}"
+    mkdir -p "${PROJECT_DIR}/$(dirname "${f}")"
+    if [[ "${f}" == */entrypoint.sh ]]; then
+      chmod 755 "${extract_dir}/${f}"
+    else
+      chmod 644 "${extract_dir}/${f}"
+    fi
+    if [ -d "${PROJECT_DIR}/${f}" ]; then
+      stale="${PROJECT_DIR}/${f}.stale.$(date +%Y%m%d-%H%M%S)"
+      mv "${PROJECT_DIR}/${f}" "${stale}"
+      log "app-sync: moved stale directory '${PROJECT_DIR}/${f}' to '${stale}'"
+    fi
     mv -f "${extract_dir}/${f}" "${PROJECT_DIR}/${f}"
   done
   log "subcommand=app-sync project=${project} OK (${SYNC_FILES[*]})"
@@ -224,6 +236,25 @@ app_sync() {
   # still live there.
   rm -rf "${tmp_dir}"
   trap - EXIT
+}
+
+app_readiness() {
+  local project="$1"
+  _load_project "${project}"
+  _build_compose_args
+  # Query the backend service directly instead of the edge vhost. The shared
+  # platform Caddy may redirect api.localhost to HTTPS, while the backend
+  # service is an unambiguous in-network readiness target.
+  case "${project}" in
+    autotrade)
+      sudo "${DOCKER}" compose "${COMPOSE_ARGS[@]}" exec -T backend \
+        python -c 'import urllib.request; print(urllib.request.urlopen("http://backend:8000/readiness", timeout=15).read().decode())'
+      ;;
+    *)
+      log "REFUSED app-readiness: project '${project}' has no registered readiness endpoint"
+      exit 65
+      ;;
+  esac
 }
 
 # --- dispatch -----------------------------------------------------------
@@ -275,6 +306,16 @@ case "${1:-}" in
     app_sync "$2"
     ;;
 
+  app-readiness)
+    [ -n "${2:-}" ] || {
+      log "REFUSED app-readiness: missing project name"
+      exit 64
+    }
+    log "subcommand=app-readiness project=$2 start"
+    app_readiness "$2"
+    log "subcommand=app-readiness project=$2 OK"
+    ;;
+
   autotrade-up)
     log "subcommand=autotrade-up (alias for 'app-up autotrade')"
     app_up autotrade
@@ -306,6 +347,7 @@ Allowed subcommands:
   app-up   <project>  docker compose pull + up -d for a registered project
   app-down <project>  docker compose down for a registered project
   app-sync <project>  Sync a project's compose/env files (tar.gz over stdin)
+  app-readiness <project>  Read a registered project's local readiness endpoint
   autotrade-up/-down/-sync   Back-compat aliases for 'app-* autotrade'
   rsync-ok            Smoke test for SSH reachability
 EOF
