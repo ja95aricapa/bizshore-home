@@ -196,6 +196,19 @@ app_sync() {
     exit 65
   fi
 
+  # The name allowlist is necessary but not sufficient: a tar member can
+  # have an approved name while still being a symlink, hard link, device, or
+  # directory.  The deploy bundle is files-only, so reject every non-regular
+  # member before extraction (the old implementation's comment promised
+  # this but only compared names).
+  local bad_types
+  bad_types="$(tar -tvzf "${archive}" 2>/dev/null \
+    | awk 'substr($1, 1, 1) != "-" { print $1 }' || true)"
+  if [ -n "${bad_types}" ]; then
+    log "REFUSED app-sync: non-regular archive members for ${project}: ${bad_types}"
+    exit 65
+  fi
+
   local extract_dir="${tmp_dir}/extracted"
   mkdir -p "${extract_dir}"
   tar -xzf "${archive}" -C "${extract_dir}" \
@@ -207,8 +220,16 @@ app_sync() {
       log "REFUSED app-sync: ${f} missing after extraction for ${project}"
       exit 65
     }
-    chmod 644 "${extract_dir}/${f}"
-    mv -f "${extract_dir}/${f}" "${PROJECT_DIR}/${f}"
+    # Archives may contain approved nested deployment paths.  Create their
+    # parents explicitly and restore the executable bit for scripts; the
+    # extraction flags above intentionally discard archive ownership/modes.
+    local destination="${PROJECT_DIR}/${f}"
+    mkdir -p "$(dirname "${destination}")"
+    case "${f}" in
+      *.sh) chmod 755 "${extract_dir}/${f}" ;;
+      *)    chmod 644 "${extract_dir}/${f}" ;;
+    esac
+    mv -f "${extract_dir}/${f}" "${destination}"
   done
   log "subcommand=app-sync project=${project} OK (${SYNC_FILES[*]})"
 

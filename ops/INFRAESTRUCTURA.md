@@ -389,7 +389,8 @@ sudo systemctl daemon-reload && sudo systemctl enable --now restic-backup.timer
 ### 7. autotrade_bot_app (si va a correr en este server)
 
 Seguir `autotrade_bot_app/ops/DEPLOY-BIZSHORE01.md` sección "Setup
-one-time en el server" completa: copiar los 3 archivos de compose,
+one-time en el server" completa: el workflow sincroniza el bundle de
+Compose/Swarm/PgBouncer/Postgres,
 recrear `.env.production` con secretos reales (no viene del backup),
 `docker login ghcr.io` en el server con un PAT `read:packages` nuevo (el
 viejo no sobrevive si el desastre fue total y no estaba en un vault
@@ -424,8 +425,8 @@ al script de `ops/host/restic/backup.sh` antes de que restic corra.
    `deploy-bizshore01.yml` completo, validado end-to-end incluyendo
    auth real contra GHCR. Ya no es manual.
 
-4. **Sync automático de `docker-compose*.yml`/`bizshore01.env` al
-   server**: **resuelto** (auditoría de arquitectura/CI-CD, esta
+4. **Sync automático del bundle de Compose/Swarm/PgBouncer/Postgres y
+   `bizshore01.env` al server**: **resuelto** (auditoría de arquitectura/CI-CD, esta
    sesión) — `ci-deploy-shell.sh` ganó un subcomando genérico
    `app-sync <proyecto>` (reemplaza el antiguo `autotrade-sync`
    hardcodeado; ese nombre se mantiene como alias retrocompatible).
