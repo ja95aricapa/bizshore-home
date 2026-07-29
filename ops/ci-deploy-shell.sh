@@ -154,7 +154,16 @@ app_up() {
   # tries to recreate networks.  Without this, a renamed/removed service can
   # remain attached to autotrade_private_net and make `up -d` fail with
   # "network ... has active endpoints" after stopping the healthy stack.
-  sudo "${DOCKER}" compose "${COMPOSE_ARGS[@]}" up -d --remove-orphans
+  if ! sudo "${DOCKER}" compose "${COMPOSE_ARGS[@]}" up -d --remove-orphans; then
+    log "subcommand=app-up project=${project} FAILED; collecting bounded diagnostics"
+    # The restricted key is allowed to invoke only this project's Compose
+    # command. Keep the diagnostic tail short and never dump environment
+    # values; this gives CI the startup exception and dependency statuses
+    # without widening the sudoers surface to arbitrary docker commands.
+    sudo "${DOCKER}" compose "${COMPOSE_ARGS[@]}" ps || true
+    sudo "${DOCKER}" compose "${COMPOSE_ARGS[@]}" logs --no-color --tail=120 backend pgbouncer migrate || true
+    return 1
+  fi
   log "subcommand=app-up project=${project} OK"
 }
 
