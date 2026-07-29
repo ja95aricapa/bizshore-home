@@ -150,7 +150,11 @@ app_up() {
   _build_compose_args
   log "subcommand=app-up project=${project} start"
   sudo "${DOCKER}" compose "${COMPOSE_ARGS[@]}" pull
-  sudo "${DOCKER}" compose "${COMPOSE_ARGS[@]}" up -d
+  # Remove stale containers from older compose definitions before Docker
+  # tries to recreate networks.  Without this, a renamed/removed service can
+  # remain attached to autotrade_private_net and make `up -d` fail with
+  # "network ... has active endpoints" after stopping the healthy stack.
+  sudo "${DOCKER}" compose "${COMPOSE_ARGS[@]}" up -d --remove-orphans
   log "subcommand=app-up project=${project} OK"
 }
 
