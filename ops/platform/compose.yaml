@@ -44,6 +44,7 @@ services:
     # ``autotrade-reverse-proxy.<tailscale-domain>`` before the shared
     # platform_edge name and return SERVFAIL/NXDOMAIN. Cloudflare's route is
     # intentionally a Docker service name, so resolve short names first.
+    dns_search: []
     dns_opt:
       - ndots:0
 
