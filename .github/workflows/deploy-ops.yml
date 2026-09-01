@@ -114,7 +114,7 @@ jobs:
         run: |
           ssh-keyscan "${DEPLOY_OPS_SSH_HOST}" >> ~/.ssh/known_hosts
           rsync -az --delete \
-            ops/caddy/ "${DEPLOY_OPS_SSH_USER}@${DEPLOY_OPS_SSH_HOST}:/data/applications/platform/caddy/"
+            ops/caddy/ "${DEPLOY_OPS_SSH_USER}@${DEPLOY_OPS_SSH_HOST}:caddy/"
         env:
           DEPLOY_OPS_SSH_HOST: ${{ secrets.DEPLOY_OPS_SSH_HOST }}
           DEPLOY_OPS_SSH_USER: ${{ secrets.DEPLOY_OPS_SSH_USER }}
@@ -123,8 +123,11 @@ jobs:
         if: needs.changes.outputs.platform == 'true'
         run: |
           ssh-keyscan "${DEPLOY_OPS_SSH_HOST}" >> ~/.ssh/known_hosts
-          rsync -az --delete \
-            ops/platform/ "${DEPLOY_OPS_SSH_USER}@${DEPLOY_OPS_SSH_HOST}:/data/applications/platform/"
+          # No --delete here: the target is the shared platform root, which
+          # also holds caddy/ (synced by the other step) and the untracked
+          # .env (CLOUDFLARED_TOKEN) — --delete would wipe both.
+          rsync -az \
+            ops/platform/ "${DEPLOY_OPS_SSH_USER}@${DEPLOY_OPS_SSH_HOST}:."
         env:
           DEPLOY_OPS_SSH_HOST: ${{ secrets.DEPLOY_OPS_SSH_HOST }}
           DEPLOY_OPS_SSH_USER: ${{ secrets.DEPLOY_OPS_SSH_USER }}
