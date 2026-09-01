@@ -37,4 +37,5 @@
 # que se sume al server. Comentar la linea para desactivar el vhost sin
 # borrar el archivo.
 import apps/bizshore-home.caddy
+import apps/ds1.caddy
 # import apps/<otra-app>.caddy

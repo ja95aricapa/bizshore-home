@@ -1,0 +1,18 @@
+# Vhost: ds1 (DS Chat Anon).
+#
+# The application container joins the shared platform_edge network with the
+# stable alias ds1-app. The app's own Caddy remains private to its Compose
+# project; the platform Caddy is the only Cloudflare Tunnel origin.
+
+ds1.bizshore.net {
+	reverse_proxy ds1-app:3000
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options SAMEORIGIN
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		-Server
+	}
+}
