@@ -4,7 +4,9 @@
 # stable alias ds1-app. The app's own Caddy remains private to its Compose
 # project; the platform Caddy is the only Cloudflare Tunnel origin.
 
-ds1.bizshore.net {
+# Cloudflare terminates public TLS. Keep this origin explicitly HTTP so the
+# central Caddy does not need an ACME certificate for a tunnel-only hostname.
+http://ds1.bizshore.net {
 	reverse_proxy ds1-app:3000
 	encode zstd gzip
 
