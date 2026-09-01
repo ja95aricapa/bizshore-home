@@ -151,12 +151,20 @@ app_sandbox_up() {
   log "subcommand=autotrade-sandbox-up project=${project} start"
   sudo "${DOCKER}" compose "${COMPOSE_ARGS[@]}" up -d --scale worker-sandbox=0
   sudo /usr/local/sbin/ci-deploy-autotrade-sandbox
-  local service_image replicas
+  local service_image expected_backend_image replicas
   service_image="$(sudo "${DOCKER}" service inspect autotrade_sandbox_worker-sandbox --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}')"
+  expected_backend_image="$(awk -F= '$1 == "BACKEND_IMAGE" {
+    print substr($0, index($0, "=") + 1)
+    exit
+  }' "${PROJECT_DIR}/bizshore01.env")"
+  if [ -z "${expected_backend_image}" ]; then
+    log "ERROR sandbox-up: missing BACKEND_IMAGE in ${PROJECT_DIR}/bizshore01.env"
+    exit 65
+  fi
   case "${service_image}" in
-    "${BACKEND_IMAGE}"|"${BACKEND_IMAGE}"@*) ;;
+    "${expected_backend_image}"|"${expected_backend_image}"@*) ;;
     *)
-      log "ERROR sandbox-up: Swarm worker image '${service_image}' does not match '${BACKEND_IMAGE}'"
+      log "ERROR sandbox-up: Swarm worker image '${service_image}' does not match '${expected_backend_image}'"
       exit 1
       ;;
   esac
