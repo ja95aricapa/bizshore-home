@@ -24,6 +24,9 @@
 #                      and the existing sudoers rule (scoped to autotrade's
 #                      exact compose paths) keep working unchanged. New
 #                      projects should use the generic `app-*` form.
+#   autotrade-sandbox-up
+#                      Deploy/update the separate Swarm sandbox stack and
+#                      disable the duplicate Compose worker.
 #   rsync-ok          No-op smoke test for SSH reachability + sudo wiring.
 #   app-readiness <proj>
 #                      Read the registered project's local readiness endpoint.
@@ -59,6 +62,9 @@
 #       /usr/bin/docker compose -f /data/applications/platform/compose.yaml *
 #       /usr/bin/docker compose -f /data/applications/autotrade/docker-compose.yml *
 #       /usr/bin/docker compose -f /data/applications/autotrade/docker-compose.yml -f /data/applications/autotrade/docker-compose.bizshore01.yml *
+#       /usr/bin/docker stack deploy --with-registry-auth -c /data/applications/autotrade/docker-stack.sandbox.yml autotrade_sandbox
+#       /usr/bin/docker service inspect autotrade_sandbox_worker-sandbox --format *
+#       /usr/bin/docker service ls --filter name=autotrade_sandbox_worker-sandbox --format *
 #     Each NEW project needs its own line here, scoped to its own compose
 #     path(s) — `ops/new-project.sh` prints the exact line to add.
 #   - Copy this script to /usr/local/bin/ci-deploy-shell (chmod 755,
@@ -107,6 +113,7 @@ _load_project() {
   COMPOSE_PROFILES=()
   ENV_FILES=()
   SYNC_FILES=()
+  SWARM_STACK_FILES=()
   # shellcheck disable=SC1090
   source "${conf}"
   : "${PROJECT_DIR:?${conf} must set PROJECT_DIR}"
@@ -114,6 +121,54 @@ _load_project() {
     log "REFUSED: ${conf} declares no COMPOSE_FILES"
     exit 65
   }
+}
+
+app_sandbox_up() {
+  local project="$1"
+  _load_project "${project}"
+  [ "${#SWARM_STACK_FILES[@]}" -eq 1 ] || {
+    log "REFUSED sandbox-up: project '${project}' must declare one SWARM_STACK_FILES entry"
+    exit 65
+  }
+  local stack_file="${PROJECT_DIR}/${SWARM_STACK_FILES[0]}"
+  [ -f "${stack_file}" ] || {
+    log "REFUSED sandbox-up: missing stack file '${stack_file}'"
+    exit 65
+  }
+
+  # docker stack deploy has no --env-file option. Export the same registered
+  # env files used by Compose so the pinned SHA and DATABASE_URL_DIRECT are
+  # interpolated consistently.
+  local env_file
+  set -a
+  for env_file in "${ENV_FILES[@]}"; do
+    [ -f "${PROJECT_DIR}/${env_file}" ] || {
+      set +a
+      log "REFUSED sandbox-up: missing env file '${PROJECT_DIR}/${env_file}'"
+      exit 65
+    }
+    # shellcheck disable=SC1090
+    source "${PROJECT_DIR}/${env_file}"
+  done
+  set +a
+  _build_compose_args
+  log "subcommand=autotrade-sandbox-up project=${project} start"
+  sudo "${DOCKER}" compose "${COMPOSE_ARGS[@]}" up -d --scale worker-sandbox=0
+  sudo "${DOCKER}" stack deploy --with-registry-auth -c "${stack_file}" autotrade_sandbox
+  local service_image replicas
+  service_image="$(sudo "${DOCKER}" service inspect autotrade_sandbox_worker-sandbox --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}')"
+  case "${service_image}" in
+    "${BACKEND_IMAGE}"|"${BACKEND_IMAGE}"@*) ;;
+    *)
+      log "ERROR sandbox-up: Swarm worker image '${service_image}' does not match '${BACKEND_IMAGE}'"
+      exit 1
+      ;;
+  esac
+  replicas="$(sudo "${DOCKER}" service ls --filter name=autotrade_sandbox_worker-sandbox --format '{{.Replicas}}')"
+  case "${replicas}" in
+    0/*|*/0) log "ERROR sandbox-up: Swarm worker has no running replica (${replicas})"; exit 1 ;;
+  esac
+  log "subcommand=autotrade-sandbox-up project=${project} OK"
 }
 
 # Builds the COMPOSE_ARGS array (-f/--profile/--env-file flags) from the
@@ -328,6 +383,11 @@ case "${1:-}" in
   autotrade-sync)
     log "subcommand=autotrade-sync (alias for 'app-sync autotrade')"
     app_sync autotrade
+    ;;
+
+  autotrade-sandbox-up)
+    log "subcommand=autotrade-sandbox-up (Swarm sandbox fleet)"
+    app_sandbox_up autotrade
     ;;
 
   rsync-ok)

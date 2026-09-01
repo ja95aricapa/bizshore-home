@@ -203,6 +203,9 @@ sudo tee /etc/sudoers.d/ci-deploy > /dev/null <<'EOF'
 ci-deploy ALL=(root) NOPASSWD: /usr/bin/docker compose -f /data/applications/platform/compose.yaml *
 ci-deploy ALL=(root) NOPASSWD: /usr/bin/docker compose -f /data/applications/autotrade/docker-compose.yml *
 ci-deploy ALL=(root) NOPASSWD: /usr/bin/docker compose -f /data/applications/autotrade/docker-compose.yml -f /data/applications/autotrade/docker-compose.bizshore01.yml *
+ci-deploy ALL=(root) NOPASSWD: /usr/bin/docker stack deploy --with-registry-auth -c /data/applications/autotrade/docker-stack.sandbox.yml autotrade_sandbox
+ci-deploy ALL=(root) NOPASSWD: /usr/bin/docker service inspect autotrade_sandbox_worker-sandbox --format *
+ci-deploy ALL=(root) NOPASSWD: /usr/bin/docker service ls --filter name=autotrade_sandbox_worker-sandbox --format *
 EOF
 sudo chmod 440 /etc/sudoers.d/ci-deploy
 sudo visudo -c -f /etc/sudoers.d/ci-deploy   # validar sintaxis
