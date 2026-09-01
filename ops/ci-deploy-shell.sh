@@ -62,7 +62,7 @@
 #       /usr/bin/docker compose -f /data/applications/platform/compose.yaml *
 #       /usr/bin/docker compose -f /data/applications/autotrade/docker-compose.yml *
 #       /usr/bin/docker compose -f /data/applications/autotrade/docker-compose.yml -f /data/applications/autotrade/docker-compose.bizshore01.yml *
-#       /usr/bin/docker stack deploy --with-registry-auth -c /data/applications/autotrade/docker-stack.sandbox.yml autotrade_sandbox
+#       /usr/local/sbin/ci-deploy-autotrade-sandbox
 #       /usr/bin/docker service inspect autotrade_sandbox_worker-sandbox --format *
 #       /usr/bin/docker service ls --filter name=autotrade_sandbox_worker-sandbox --format *
 #     Each NEW project needs its own line here, scoped to its own compose
@@ -136,25 +136,21 @@ app_sandbox_up() {
     exit 65
   }
 
-  # docker stack deploy has no --env-file option. Export the same registered
-  # env files used by Compose so the pinned SHA and DATABASE_URL_DIRECT are
-  # interpolated consistently.
+  # Compose reads the registered env files as root through the narrowly scoped
+  # docker rule. Do not source .env.production here: ci-deploy must not gain
+  # read access to the application's production secrets. Stack deployment is
+  # delegated to the separately installed root-only helper.
   local env_file
-  set -a
   for env_file in "${ENV_FILES[@]}"; do
     [ -f "${PROJECT_DIR}/${env_file}" ] || {
-      set +a
       log "REFUSED sandbox-up: missing env file '${PROJECT_DIR}/${env_file}'"
       exit 65
     }
-    # shellcheck disable=SC1090
-    source "${PROJECT_DIR}/${env_file}"
   done
-  set +a
   _build_compose_args
   log "subcommand=autotrade-sandbox-up project=${project} start"
   sudo "${DOCKER}" compose "${COMPOSE_ARGS[@]}" up -d --scale worker-sandbox=0
-  sudo "${DOCKER}" stack deploy --with-registry-auth -c "${stack_file}" autotrade_sandbox
+  sudo /usr/local/sbin/ci-deploy-autotrade-sandbox
   local service_image replicas
   service_image="$(sudo "${DOCKER}" service inspect autotrade_sandbox_worker-sandbox --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}')"
   case "${service_image}" in

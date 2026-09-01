@@ -165,17 +165,23 @@ sobre docker se otorgan vía sudoers abajo.
 ### 6.4 Instalar el wrapper restringido
 
 El wrapper vive en este repo bajo `ops/ci-deploy-shell.sh` y se copia
-tal cual al server:
+tal cual al server. El sandbox tiene además un helper root-only versionado
+en `ops/ci-deploy-autotrade-sandbox.sh`: carga los env files productivos
+solo dentro de root y ejecuta el `docker stack deploy`, porque `ci-deploy`
+no debe poder leer `.env.production`:
 
 ```bash
 ssh bizshore-server
 sudo install -m 755 ops/ci-deploy-shell.sh /usr/local/bin/ci-deploy-shell
 sudo chown root:root /usr/local/bin/ci-deploy-shell
+sudo install -m 755 ops/ci-deploy-autotrade-sandbox.sh /usr/local/sbin/ci-deploy-autotrade-sandbox
+sudo chown root:root /usr/local/sbin/ci-deploy-autotrade-sandbox
 ```
 
-Después de **cada cambio** al archivo en este repo, repetir el `install`
-para mantener el server sincronizado. Tratar `/usr/local/bin/ci-deploy-shell`
-como config — no editarlo directo en el server.
+Después de **cada cambio** a cualquiera de esos archivos en este repo,
+repetir el `install` correspondiente para mantener el server sincronizado.
+Tratar las copias en `/usr/local/{bin,sbin}` como config — no editarlas
+directamente en el server.
 
 ### 6.5 Wirear las llaves en `authorized_keys`
 
@@ -203,7 +209,7 @@ sudo tee /etc/sudoers.d/ci-deploy > /dev/null <<'EOF'
 ci-deploy ALL=(root) NOPASSWD: /usr/bin/docker compose -f /data/applications/platform/compose.yaml *
 ci-deploy ALL=(root) NOPASSWD: /usr/bin/docker compose -f /data/applications/autotrade/docker-compose.yml *
 ci-deploy ALL=(root) NOPASSWD: /usr/bin/docker compose -f /data/applications/autotrade/docker-compose.yml -f /data/applications/autotrade/docker-compose.bizshore01.yml *
-ci-deploy ALL=(root) NOPASSWD: /usr/bin/docker stack deploy --with-registry-auth -c /data/applications/autotrade/docker-stack.sandbox.yml autotrade_sandbox
+ci-deploy ALL=(root) NOPASSWD: /usr/local/sbin/ci-deploy-autotrade-sandbox
 ci-deploy ALL=(root) NOPASSWD: /usr/bin/docker service inspect autotrade_sandbox_worker-sandbox --format *
 ci-deploy ALL=(root) NOPASSWD: /usr/bin/docker service ls --filter name=autotrade_sandbox_worker-sandbox --format *
 EOF
