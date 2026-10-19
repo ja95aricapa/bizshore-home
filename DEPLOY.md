@@ -33,11 +33,11 @@ ssh -i "$HOME/.ssh/bizshore01-deploy-shell" -o IdentitiesOnly=yes \
 
 ## Reversión
 
-Usa el SHA completo de una release que ya exista en el host:
+Usa el comando local con el SHA completo de una release que ya exista en el
+host:
 
 ```bash
-ssh -i "$HOME/.ssh/bizshore01-deploy-shell" -o IdentitiesOnly=yes \
-  -o BatchMode=yes ci-deploy@bizshore-server home-rollback <SHA_COMPLETO>
+./scripts/bizshore rollback home <SHA_COMPLETO>
 ```
 
 Comprueba el estado con `home-state` y vuelve a verificar ambos dominios. La
