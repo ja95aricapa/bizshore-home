@@ -220,24 +220,43 @@ sudo install -m 644 /tmp/restic-ops/restic-backup.service /etc/systemd/system/
 sudo install -m 644 /tmp/restic-ops/restic-backup.timer /etc/systemd/system/
 rm -rf /tmp/restic-ops
 sudo systemctl daemon-reload
-sudo systemctl enable --now restic-backup.timer
 ```
 
-La unidad tiene `TimeoutStartSec=2h`: en un servicio `Type=oneshot` el timeout
-de inicio está desactivado por defecto. Las ejecuciones completas observadas
-históricamente terminaron en minutos; dos horas dejan margen para reintentos
-de Drive sin permitir que un proceso bloqueado retenga la unidad indefinidamente.
-No hay reinicio automático del mismo job: systemd marca el fallo y el siguiente
-intento es el del timer diario. Confirma el fallo y el estado del repositorio
-antes de iniciar un intento manual o ejecutar `restic unlock`.
+**No habilitar todavía el timer.** La ejecución de producción observada el
+2026-10-17 fue terminada manualmente después de más de 15 horas; el journal
+registró `403 RATE_LIMIT_EXCEEDED` de Google Drive API. El espacio disponible
+no era el problema. Primero configura un OAuth client propio, verifica acceso,
+ejecuta una copia manual completa y restaura una muestra en un directorio
+aislado. Solo después de completar esa prueba se debe ejecutar
+`sudo systemctl enable --now restic-backup.timer`.
 
-## Paso 4 — validar
+La unidad establece `TimeoutStartSec=2h`: en un servicio `Type=oneshot` el
+timeout de inicio está desactivado por defecto. El límite evita que otro
+proceso retenido por errores de Drive ocupe la unidad durante horas; no
+demuestra por sí mismo que el backup terminó. No hay reinicio automático del
+mismo job: systemd marca el fallo y el siguiente intento sería el del timer,
+cuando se habilite. Confirma el fallo y el estado del repositorio antes de
+iniciar otro intento manual o ejecutar `restic unlock`.
+
+## Paso 4 — validar antes de habilitar el timer
+
+Haz estos pasos después de confirmar que el OAuth client propio funciona y que
+no quedan procesos `restic` o `rclone` de la ejecución anterior:
 
 ```bash
-sudo systemctl start restic-backup.service   # corre un backup ahora, sin esperar al timer
+sudo rclone --config /etc/restic/rclone.conf lsd gdrive:
+sudo systemctl reset-failed restic-backup.service
+sudo systemctl start restic-backup.service  # espera hasta completar o alcanzar el límite de dos horas
+sudo systemctl show restic-backup.service --property=ActiveState,SubState,Result,MainPID,ExecMainStatus --no-pager
 sudo journalctl -u restic-backup.service -n 50 --no-pager
 sudo bash -c 'source /etc/restic/env && restic snapshots'
+sudo bash -c 'source /etc/restic/env && restic restore latest --target /tmp/restic-restore-test'
 ```
+
+Comprueba que hay un snapshot nuevo, `Result=success`, y los archivos de la
+muestra restaurada. Borra la muestra solo después de confirmar el resultado.
+Si cualquier paso falla o agota el timeout, deja el timer inactivo e
+investiga antes de volver a ejecutar `restic backup`.
 
 ## Restaurar (cuando haga falta)
 
