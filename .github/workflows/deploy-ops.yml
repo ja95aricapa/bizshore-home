@@ -1,8 +1,8 @@
 name: Deploy ops/
 
 # Deploys changes under ops/ to the bizshore-01 server via Tailscale.
-# Triggers only when ops/ changes (dorny/paths-filter), and only on push
-# to main. PRs do NOT trigger deploys — only merges do.
+# Triggers only when ops/caddy/ or ops/platform/ changes, and only on push
+# to main. Documentation and host-maintenance files do not start this workflow.
 #
 # Two distinct SSH keys, both restricted server-side:
 #   DEPLOY_OPS_SSH_KEY         rrsync for ops/caddy/ + ops/platform/ —
@@ -30,6 +30,9 @@ name: Deploy ops/
 on:
   push:
     branches: [main]
+    paths:
+      - ops/caddy/**
+      - ops/platform/**
 
 jobs:
   changes:

@@ -12,7 +12,9 @@
 # real host path lives under Docker's relocated data-root
 # (/data/docker/volumes/..., confirmed via `docker info --format
 # '{{.DockerRootDir}}'`), which is NOT one of the plain BACKUP_PATHS
-# entries above and was silently never captured before this fix. Other
+# entries above and was silently never captured before this fix. This job
+# requires a recent, complete artifact set (SQL, uploads, secrets, manifest)
+# before pruning snapshots. Other
 # named volumes (pg_data, redis_data, caddy_data, ...) are deliberately
 # NOT added here: a raw file-level snapshot of a *live* Postgres data
 # directory is not crash-consistent without WAL archiving or stopping
@@ -56,15 +58,59 @@ log() { printf '[%s] %s\n' "$(date -Iseconds)" "$*"; }
 # never hardcode a /data/docker/volumes/... path, it depends on Docker's
 # configured data-root (`docker info --format '{{.DockerRootDir}}'`) and
 # on the Compose project name (volume name prefix), both of which could
-# change. Missing volume is a warning, not a hard failure: a fresh host
-# before autotrade's first deploy shouldn't block the rest of the backup.
+# change. These artifacts are required for a recoverable production DB;
+# missing or stale artifacts fail this systemd run instead of producing a
+# falsely successful partial backup.
 autotrade_backups_mount="$(docker volume inspect autotrade_backups --format '{{.Mountpoint}}' 2>/dev/null || true)"
-if [ -n "${autotrade_backups_mount}" ] && [ -d "${autotrade_backups_mount}" ]; then
-  BACKUP_PATHS+=("${autotrade_backups_mount}")
-  log "including autotrade_backups volume: ${autotrade_backups_mount}"
-else
-  log "WARNING: autotrade_backups Docker volume not found — skipping (DB dumps will NOT be backed up this run)"
+if [ -z "${autotrade_backups_mount}" ] || [ ! -d "${autotrade_backups_mount}" ]; then
+  log "ERROR: required autotrade_backups Docker volume is missing; refusing an incomplete backup"
+  exit 1
 fi
+
+# Match the database runner's existing 25-hour freshness alert, and require
+# a non-empty set of artifacts with matching timestamps before allowing prune.
+backup_now="$(date +%s)"
+backup_set_found=false
+shopt -s nullglob
+for manifest_path in "${autotrade_backups_mount}"/restore-manifest-*.json; do
+  if [[ "${manifest_path##*/}" =~ ^restore-manifest-([0-9]{8}-[0-9]{6})\.json$ ]]; then
+    backup_stamp="${BASH_REMATCH[1]}"
+    artifact_paths=(
+      "${autotrade_backups_mount}/pg-backup-${backup_stamp}.sql"
+      "${autotrade_backups_mount}/uploads-backup-${backup_stamp}.tar.gz"
+      "${autotrade_backups_mount}/platform-secrets-backup-${backup_stamp}.json"
+      "${manifest_path}"
+    )
+    complete_set=true
+    oldest_mtime=""
+    for artifact_path in "${artifact_paths[@]}"; do
+      if [ ! -s "${artifact_path}" ]; then
+        complete_set=false
+        break
+      fi
+      artifact_mtime="$(stat -c '%Y' -- "${artifact_path}")"
+      if [ -z "${oldest_mtime}" ] || (( artifact_mtime < oldest_mtime )); then
+        oldest_mtime="${artifact_mtime}"
+      fi
+    done
+    if [ "${complete_set}" = true ]; then
+      backup_age="$((backup_now - oldest_mtime))"
+      if (( backup_age >= 0 && backup_age <= 90000 )); then
+        backup_set_found=true
+        break
+      fi
+    fi
+  fi
+done
+shopt -u nullglob
+
+if [ "${backup_set_found}" != true ]; then
+  log "ERROR: no non-empty SQL/uploads/secrets/manifest set from the last 25 hours; refusing an incomplete backup"
+  exit 1
+fi
+
+BACKUP_PATHS+=("${autotrade_backups_mount}")
+log "including recent complete artifact set from autotrade_backups volume"
 
 log "restic backup start"
 restic backup "${BACKUP_PATHS[@]}" \

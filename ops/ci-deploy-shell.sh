@@ -30,6 +30,9 @@
 #   rsync-ok          No-op smoke test for SSH reachability + sudo wiring.
 #   app-readiness <proj>
 #                      Read the registered project's local readiness endpoint.
+#   app-image-state <proj>
+#                      Return only allowlisted immutable application image refs;
+#                      never read or emit application secret values.
 #
 # Onboarding a new project == one new file (see ops/projects/_TEMPLATE.conf)
 # plus one new sudoers line — no edits to this script. See "Onboarding a
@@ -344,6 +347,54 @@ app_readiness() {
   esac
 }
 
+app_image_state() {
+  local project="$1"
+  local env_file env_path key value backend frontend proxy telegram worker_ttl deploy_grace
+  _load_project "${project}"
+  [ "${project}" = "autotrade" ] || {
+    log "REFUSED app-image-state: project '${project}' has no registered image contract"
+    exit 65
+  }
+
+  env_path=""
+  for env_file in "${ENV_FILES[@]}"; do
+    if [ "${env_file}" = "bizshore01.env" ]; then
+      env_path="${PROJECT_DIR}/${env_file}"
+      break
+    fi
+  done
+  [ -n "${env_path}" ] && [ -r "${env_path}" ] || {
+    log "ERROR app-image-state: registered image env file is unavailable"
+    exit 1
+  }
+
+  # Parse only the four public image references; never source an env file that
+  # also contains credentials, nor print any unrecognized assignment.
+  while IFS='=' read -r key value; do
+    case "${key}" in
+      BACKEND_IMAGE) backend="${value}" ;;
+      FRONTEND_IMAGE) frontend="${value}" ;;
+      REVERSE_PROXY_IMAGE) proxy="${value}" ;;
+      TELEGRAM_IMAGE) telegram="${value}" ;;
+      WORKER_HEARTBEAT_TTL_SECONDS) worker_ttl="${value}" ;;
+      WORKER_DEPLOYMENT_GRACE_UNTIL) deploy_grace="${value}" ;;
+    esac
+  done < "${env_path}"
+
+  [[ "${backend:-}" =~ ^ghcr\.io/ja95aricapa/autotrade-backend:[0-9a-f]{40}$ ]] &&
+    [[ "${frontend:-}" =~ ^ghcr\.io/ja95aricapa/autotrade-frontend:[0-9a-f]{40}$ ]] &&
+    [[ "${proxy:-}" =~ ^ghcr\.io/ja95aricapa/autotrade-proxy:[0-9a-f]{40}$ ]] &&
+    [[ "${telegram:-}" =~ ^ghcr\.io/ja95aricapa/autotrade-telegram-bridge:[0-9a-f]{40}$ ]] || {
+      log "ERROR app-image-state: image env contains a missing or non-immutable allowlisted reference"
+      exit 1
+    }
+  [[ "${worker_ttl:-}" =~ ^[0-9]{1,5}$ ]] || worker_ttl=360
+  [[ "${deploy_grace:-}" =~ ^[0-9]{1,12}$ ]] || deploy_grace=0
+
+  printf '{"backend":"%s","frontend":"%s","proxy":"%s","telegram":"%s","worker_heartbeat_ttl_seconds":%s,"worker_deployment_grace_until":%s}\n' \
+    "${backend}" "${frontend}" "${proxy}" "${telegram}" "${worker_ttl}" "${deploy_grace}"
+}
+
 # --- dispatch -----------------------------------------------------------
 
 # sshd invokes this script directly (no args) when it's set as a forced
@@ -403,6 +454,16 @@ case "${1:-}" in
     log "subcommand=app-readiness project=$2 OK"
     ;;
 
+  app-image-state)
+    [ -n "${2:-}" ] || {
+      log "REFUSED app-image-state: missing project name"
+      exit 64
+    }
+    log "subcommand=app-image-state project=$2 start"
+    app_image_state "$2"
+    log "subcommand=app-image-state project=$2 OK"
+    ;;
+
   autotrade-up)
     log "subcommand=autotrade-up (alias for 'app-up autotrade')"
     app_up autotrade
@@ -440,6 +501,7 @@ Allowed subcommands:
   app-down <project>  docker compose down for a registered project
   app-sync <project>  Sync a project's compose/env files (tar.gz over stdin)
   app-readiness <project>  Read a registered project's local readiness endpoint
+  app-image-state <project> Return the registered immutable image refs only
   autotrade-up/-down/-sync   Back-compat aliases for 'app-* autotrade'
   rsync-ok            Smoke test for SSH reachability
 EOF

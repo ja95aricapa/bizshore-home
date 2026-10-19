@@ -1,9 +1,9 @@
 # Backups de bizshore-01 con restic
 
-Estado: **activo**. Destino: Google Drive personal, vía el backend `rclone:`
-de restic. Repo inicializado en `rclone:gdrive:backups/bizshore-01`, timer
-diario corriendo (`restic-backup.timer`), backup + `restic check` + restore
-de prueba ya verificados en producción.
+Estado documentado: Google Drive personal, vía el backend `rclone:` de restic.
+El repo inicializado es `rclone:gdrive:backups/bizshore-01`. El estado activo,
+la salud reciente, la cobertura y la restauración deben verificarse en el host;
+la documentación por sí sola no demuestra que el backup diario esté sano.
 
 ## Por qué restic
 
@@ -35,7 +35,7 @@ curl https://rclone.org/install.sh | sudo bash
 rclone config
 # n) New remote → name: gdrive
 # Storage → Google Drive (número visible en el menú, cambia entre versiones)
-# client_id / client_secret → dejar vacío (ver nota de rate-limit abajo)
+# client_id / client_secret → usar el client_id propio creado abajo
 # scope → 1 (Full access all files, excluding Application Data Folder)
 # service_account_file → dejar vacío
 # Edit advanced config? → n
@@ -74,16 +74,38 @@ EOF
 sudo chmod 600 /etc/restic/env
 ```
 
-### Nota — rate limit del client_id compartido
+### A.1.1 — Crear un OAuth client propio para rclone
 
-Dejar `client_id`/`client_secret` vacíos en `rclone config` usa la
-credencial interna de rclone, **compartida por todos los usuarios de
-rclone del mundo**. Con eso, un `restic init` con este volumen de datos
-ya disparó un `403 Quota exceeded (Queries per minute)` una vez — rclone
-reintentó solo y se recuperó, pero si en algún momento un backup falla
-duro por esto (no un retry transitorio, sino error persistente), la
-solución es generar un client_id propio en Google Cloud Console (gratis,
-~5 min) y volver a correr `rclone config` para setearlo en el remote.
+El journal de producción confirmó `403 rateLimitExceeded` con causa
+`RATE_LIMIT_EXCEEDED` en Google Drive API. El remote se configuró sin
+`client_id` propio, por lo que usa el OAuth client compartido de rclone.
+Rclone informa que ese client compartido se retira durante 2026 y recomienda
+crear uno propio; esta es la corrección prioritaria. No se debe pedir aumento
+de cuota ni activar facturación para este procedimiento.
+
+1. En [Google Cloud Console](https://console.cloud.google.com/), crea o elige
+   un proyecto dedicado a este backup y habilita **Google Drive API**.
+2. Configura la pantalla de consentimiento OAuth como **External**, agrega tu
+   propia cuenta como usuario de prueba y crea un OAuth Client ID de tipo
+   **Desktop app**. Usa el modo de publicación que evite que el permiso expire
+   cada siete días; acepta la advertencia de aplicación no verificada durante
+   el inicio de sesión personal si Google la presenta. No habilites billing.
+3. En la Acer, respalda el archivo de configuración con permisos privados y
+   ejecuta `rclone config`. Edita el remote `gdrive`, introduce el client ID y
+   client secret propios, conserva la cuenta/alcance de Drive actual y vuelve
+   a autorizarlo en el navegador. No pegues esos valores en el chat ni en Git.
+4. Confirma que `rclone lsd gdrive:` funciona desde la Acer y que lista la
+   cuenta esperada. Copia de forma segura el nuevo `rclone.conf` al servidor
+   como `/etc/restic/rclone.conf`, propiedad `root:root`, modo `600`; conserva
+   el archivo anterior fuera de la ruta activa hasta validar el nuevo.
+5. Verifica en el servidor únicamente el acceso (sin mostrar la configuración):
+   `sudo rclone --config /etc/restic/rclone.conf lsd gdrive:`.
+
+El log también muestra que el servicio fue terminado manualmente con SIGTERM;
+eso explica su estado `failed` actual. Mantén detenido el timer hasta validar
+el OAuth client propio, comprobar la ausencia de procesos activos, correr un
+backup único y confirmar un snapshot nuevo. Aún falta restaurar una muestra
+para considerar probado el respaldo.
 
 ## Otras opciones (no elegidas, documentadas por si el destino cambia)
 
@@ -200,6 +222,14 @@ rm -rf /tmp/restic-ops
 sudo systemctl daemon-reload
 sudo systemctl enable --now restic-backup.timer
 ```
+
+La unidad tiene `TimeoutStartSec=2h`: en un servicio `Type=oneshot` el timeout
+de inicio está desactivado por defecto. Las ejecuciones completas observadas
+históricamente terminaron en minutos; dos horas dejan margen para reintentos
+de Drive sin permitir que un proceso bloqueado retenga la unidad indefinidamente.
+No hay reinicio automático del mismo job: systemd marca el fallo y el siguiente
+intento es el del timer diario. Confirma el fallo y el estado del repositorio
+antes de iniciar un intento manual o ejecutar `restic unlock`.
 
 ## Paso 4 — validar
 

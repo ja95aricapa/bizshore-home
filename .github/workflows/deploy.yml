@@ -3,6 +3,13 @@ name: Deploy
 on:
   push:
     branches: [main]
+    paths:
+      - index.html
+      - package.json
+      - package-lock.json
+      - vite.config.js
+      - src/**
+      - public/**
 
 jobs:
   build-and-deploy:
