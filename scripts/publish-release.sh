@@ -44,7 +44,7 @@ if [[ "$dry_run" == false ]] && [[ -n "$(git status --porcelain)" ]]; then
 fi
 
 if [[ "$dry_run" == false ]]; then
-  gh auth status >/dev/null
+  gh auth status --active >/dev/null
 fi
 
 npm ci
