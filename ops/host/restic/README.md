@@ -83,6 +83,15 @@ Rclone informa que ese client compartido se retira durante 2026 y recomienda
 crear uno propio; esta es la corrección prioritaria. No se debe pedir aumento
 de cuota ni activar facturación para este procedimiento.
 
+El script del repositorio también establece un límite inicial de 4 solicitudes
+por segundo y ráfaga de 1 (`RCLONE_TPSLIMIT`, `RCLONE_TPSLIMIT_BURST`); se
+pueden ajustar en `/etc/restic/env`. Rclone acepta `RCLONE_` para configurar
+opciones equivalentes a flags. El script instalado en producción aún no
+contiene este ajuste: probarlo con una única ejecución manual después de
+instalar la versión actualizada y crear el OAuth client propio. El
+`restic check --read-data-subset=5%` actual también lee datos del remoto y suma
+tiempo y tráfico; no equivale a un chequeo de metadatos solamente.
+
 1. En [Google Cloud Console](https://console.cloud.google.com/), crea o elige
    un proyecto dedicado a este backup y habilita **Google Drive API**.
 2. Configura la pantalla de consentimiento OAuth como **External**, agrega tu

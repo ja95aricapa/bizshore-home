@@ -97,10 +97,27 @@ frecuentes, conviene automatizar el rsync y el reload dentro de
 `.github/workflows/deploy.yml` con una llave SSH separada restringida a
 `caddy reload`. Por ahora la sincronización es manual.
 
-## 5. Primer deploy
+## 5. Publicar y desplegar una versión
 
-Push a `main` dispara `.github/workflows/deploy.yml`: build con Vite y
-`rsync --delete` del `dist/` hacia `/data/static-sites/bizshore-home/`.
+El CI de la aplicación corre en la máquina local. Desde un checkout limpio
+de `main`, `scripts/publish-release.sh` instala dependencias de forma
+reproducible, ejecuta `npm run lint` y `npm run build`, empaqueta `dist/`
+con metadatos normalizados y crea un GitHub Release identificado por el SHA
+del commit. Antes de publicar, se puede validar todo sin crear el release:
+
+```bash
+scripts/publish-release.sh --dry-run
+scripts/publish-release.sh
+```
+
+La publicación del release activa `.github/workflows/deploy.yml`; Actions no
+instala dependencias ni compila la aplicación. Descarga el artefacto de ese
+release, verifica SHA-256 y el SHA del commit, valida el archivo y luego
+sincroniza el sitio con `rsync --delete` hacia
+`/data/static-sites/bizshore-home/`. El release conserva el artefacto para
+repetir o revertir el despliegue: ejecutar `workflow_dispatch`, elegir un tag
+`home-<12 caracteres SHA>` y volver a desplegar ese bundle. Un push a `main`
+por sí solo no publica ni despliega el sitio.
 
 ## 6. Deploy automatizado de `ops/` (Caddyfile + compose.yaml del stack platform)
 

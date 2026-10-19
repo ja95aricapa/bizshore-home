@@ -46,6 +46,11 @@ source "$ENV_FILE"
 : "${RESTIC_REPOSITORY:?RESTIC_REPOSITORY must be set in $ENV_FILE}"
 : "${RESTIC_PASSWORD_FILE:?RESTIC_PASSWORD_FILE must be set in $ENV_FILE}"
 
+# Bound Drive API calls after the observed project-level rate-limit errors;
+# values in /etc/restic/env can override these conservative defaults.
+export RCLONE_TPSLIMIT="${RCLONE_TPSLIMIT:-4}"
+export RCLONE_TPSLIMIT_BURST="${RCLONE_TPSLIMIT_BURST:-1}"
+
 BACKUP_PATHS=(
   /data/static-sites
   /data/applications/platform/caddy
@@ -113,6 +118,7 @@ BACKUP_PATHS+=("${autotrade_backups_mount}")
 log "including recent complete artifact set from autotrade_backups volume"
 
 log "restic backup start"
+log "rclone API request limit: ${RCLONE_TPSLIMIT} TPS, burst ${RCLONE_TPSLIMIT_BURST}"
 restic backup "${BACKUP_PATHS[@]}" \
   --exclude-caches \
   --tag bizshore-01 \

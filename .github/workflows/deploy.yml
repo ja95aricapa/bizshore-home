@@ -1,44 +1,97 @@
 name: Deploy
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - index.html
-      - package.json
-      - package-lock.json
-      - vite.config.js
-      - src/**
-      - public/**
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing home-<12-character-SHA> release to deploy or restore"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bizshore-home-production
+  cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-24.04
+    env:
+      DEPLOY_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+      GH_TOKEN: ${{ github.token }}
+      DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+      DEPLOY_SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_SSH_PATH: ${{ secrets.DEPLOY_SSH_PATH }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Validate release and deploy settings
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_TAG" =~ ^home-[0-9a-f]{12}$ ]]
+          for name in DEPLOY_SSH_HOST DEPLOY_SSH_USER DEPLOY_SSH_KEY DEPLOY_SSH_PATH; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::$name is missing from repository Actions secrets."
+              exit 1
+            fi
+          done
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+      - name: Download and verify the local build
+        run: |
+          set -euo pipefail
+          release_dir="$RUNNER_TEMP/bizshore-home-release"
+          site_dir="$RUNNER_TEMP/bizshore-home-site"
+          mkdir -m 700 "$release_dir" "$site_dir"
+          gh release download "$DEPLOY_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'bizshore-home-dist.tar.gz' \
+            --pattern 'bizshore-home-dist.tar.gz.sha256' \
+            --pattern 'source-commit.txt' \
+            --dir "$release_dir"
+          cd "$release_dir"
+          source_commit="$(cat source-commit.txt)"
+          [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$DEPLOY_TAG" == "home-${source_commit:0:12}" ]]
+          sha256sum -c bizshore-home-dist.tar.gz.sha256
+          if tar -tzf bizshore-home-dist.tar.gz | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+            echo "::error::Release archive contains an unsafe path."
+            exit 1
+          fi
+          tar -xzf bizshore-home-dist.tar.gz --no-same-owner -C "$site_dir"
+          test -s "$site_dir/index.html"
+          echo "Verified public-site bundle for $DEPLOY_TAG."
 
-      - run: npm ci
-      - run: npm run build
-
-      - name: Join tailnet
-        uses: tailscale/github-action@v3
+      - name: Join the tailnet
+        uses: tailscale/github-action@6cae46e2d796f265265cfcf628b72a32b4d7cade # v3
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
 
-      - uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-
-      - name: Deploy dist/ via rsync
+      - name: Install the restricted SSH key
         run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan "${{ secrets.DEPLOY_SSH_HOST }}" >> ~/.ssh/known_hosts
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' 'bizshore-server ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGCjrf7FpKOrPYTKI5CFIrlA0TSwbFVw5Q6tfpYk1zkQ' > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          cat >> ~/.ssh/config <<EOF
+          Host bizshore-home-deploy
+            HostName $DEPLOY_SSH_HOST
+            HostKeyAlias bizshore-server
+            User $DEPLOY_SSH_USER
+            IdentityFile ~/.ssh/id_ed25519
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Deploy the verified bundle
+        run: |
+          set -euo pipefail
           rsync -az --delete \
-            dist/ "${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}:${{ secrets.DEPLOY_SSH_PATH }}/"
+            "$RUNNER_TEMP/bizshore-home-site/" \
+            "bizshore-home-deploy:$DEPLOY_SSH_PATH/"
