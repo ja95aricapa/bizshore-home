@@ -1,5 +1,11 @@
 # Publicar Bizshore Home
 
+> **Transición:** este repositorio aún usa el workflow existente de GitHub
+> Actions para sincronizar una release estática. El objetivo aprobado es
+> trasladar build y deploy al PC, dejando GitHub solo como remoto Git. No añadas
+> secretos ni amplíes Actions; conserva esta ruta hasta que el deploy local con
+> reemplazo atómico y rollback esté probado en `bizshore-platform`.
+
 Este repositorio publica solo el sitio estático. No despliega contenedores ni
 modifica Autotrade, MediaCortex, Caddy o Cloudflare Tunnel. La configuración
 compartida del host vive en el repositorio privado `bizshore-platform`.

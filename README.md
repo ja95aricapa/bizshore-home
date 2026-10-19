@@ -36,10 +36,14 @@ Si VITE_FORMSPREE_ENDPOINT no existe, el formulario mostrara aviso y ofrecera en
 ## Despliegue
 
 Bizshore Home publica únicamente el bundle estático `dist/`. La compilación
-y creación del release se ejecutan localmente; GitHub Actions valida el
-artefacto y lo sincroniza al directorio del sitio. El procedimiento está en
-[DEPLOY.md](DEPLOY.md). La configuración compartida de Caddy, Cloudflare
-Tunnel y demás aplicaciones pertenece a `bizshore-platform`.
+y creación del release se ejecutan localmente. El workflow actual todavía
+sincroniza el artefacto desde GitHub Actions; es una ruta de transición que se
+reemplazará por el deploy local de `bizshore-platform` después de probar
+transferencia atómica y rollback. No añadir nuevos secretos ni ampliar ese
+workflow. El procedimiento vigente y el corte pendiente están en
+[DEPLOY.md](DEPLOY.md) y en el backlog de la plataforma. La configuración
+compartida de Caddy, Cloudflare Tunnel y demás aplicaciones pertenece a
+`bizshore-platform`.
 
 ## SEO e indexacion
 
