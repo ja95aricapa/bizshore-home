@@ -33,6 +33,14 @@ Si VITE_FORMSPREE_ENDPOINT no existe, el formulario mostrara aviso y ofrecera en
 - Lint: npm run lint
 - Build: npm run build
 
+## Despliegue
+
+Bizshore Home publica únicamente el bundle estático `dist/`. La compilación
+y creación del release se ejecutan localmente; GitHub Actions valida el
+artefacto y lo sincroniza al directorio del sitio. El procedimiento está en
+[DEPLOY.md](DEPLOY.md). La configuración compartida de Caddy, Cloudflare
+Tunnel y demás aplicaciones pertenece a `bizshore-platform`.
+
 ## SEO e indexacion
 
 El proyecto incluye:
