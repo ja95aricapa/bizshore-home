@@ -13,9 +13,9 @@ Sitio web corporativo informativo para BizShore Solutions SAS, desarrollado con 
 
    npm install
 
-2. Crea archivo de entorno local a partir de la plantilla:
+2. Crea el archivo de entorno local ignorado por Git:
 
-   cp .env.example .env.local
+   cp .env.example .env
 
 3. Ejecuta en desarrollo:
 
@@ -27,6 +27,11 @@ Sitio web corporativo informativo para BizShore Solutions SAS, desarrollado con 
 - VITE_FORMSPREE_ENDPOINT: endpoint de Formspree para el formulario de contacto
 
 Si VITE_FORMSPREE_ENDPOINT no existe, el formulario mostrara aviso y ofrecera envio por correo directo.
+Estas variables son configuración pública de compilación, no secretos. El
+despliegue publica solo el bundle estático; el servidor no lee un `.env` al
+servirlo. La copia privada `/data/static-sites/bizshore-home/.env` conserva la
+configuración aprobada junto al sitio para recuperación. Mantén los valores de
+compilación de producción iguales en el `.env` local y en esa copia del host.
 
 ## Calidad
 
