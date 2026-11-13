@@ -28,10 +28,16 @@ Sitio web corporativo informativo para BizShore Solutions SAS, desarrollado con 
 
 Si VITE_FORMSPREE_ENDPOINT no existe, el formulario mostrara aviso y ofrecera envio por correo directo.
 Estas variables son configuración pública de compilación, no secretos. El
-despliegue publica solo el bundle estático; el servidor no lee un `.env` al
-servirlo. La copia privada `/data/static-sites/bizshore-home/.env` conserva la
-configuración aprobada junto al sitio para recuperación. Mantén los valores de
-compilación de producción iguales en el `.env` local y en esa copia del host.
+despliegue publica solo el bundle estático; el servidor no requiere ni lee un
+`.env` para servirlo. Si se mantiene una copia privada de `.env` en el host, es
+solo referencia de recuperación para reconstruir `dist/`; mantén sus valores de
+compilación de producción iguales a los del `.env` local.
+
+La copia host-side de `.env` solo sirve como referencia para reconstruir el
+bundle: ni Caddy ni el publicador estático la leen al servir la release. Los
+valores `VITE_*` se incorporan al JavaScript de `dist/` y son públicos. El
+inventario de nombres, consumidores y estado de compilación está en
+`bizshore-platform/ops/VARIABLES-HOME.md`.
 
 ## Calidad
 
